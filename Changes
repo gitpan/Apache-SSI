@@ -1,0 +1,5 @@
+Revision history for Perl extension Apache::SSI.
+
+1.90  Fri Jun 26 18:07:57 1998
+	- original version; created by h2xs 1.18
+     Actually a re-write of Doug MacEachern's version.

@@ -1,5 +1,9 @@
 Revision history for Perl extension Apache::SSI.
 
+2.06_1  Wed Feb  3 11:31:52 EST 1999
+   - Forgot to include some 'make test' files in the MANIFEST, so they
+     didn't get distributed.  No changes to the code here.
+
 2.06  Wed Feb  3 00:16:12 EST 1999
    - The boolean expressions of the <!--#if--> and <!--#elsif--> directives
      are now handled with a Perl eval().  This allows proper parsing of

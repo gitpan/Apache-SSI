@@ -2,12 +2,12 @@ package Apache::SSI;
 
 use strict;
 use vars qw($VERSION);
-use Apache::Constants qw(:common OPT_EXECCGI);
+use Apache::Constants qw(:common OPT_INCNOEXEC);
 use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.06_1';
+$VERSION = '2.07';
 my $debug = 0;
 
 sub handler($$) {
@@ -117,7 +117,7 @@ sub output_ssi {
         warn ("args are " . join (',', @{$args})) if $debug;
         return $self->$method( {@$args}, $args );
     }
-    return;
+    return '';
 }
 
 sub ssi_if {
@@ -126,7 +126,7 @@ sub ssi_if {
     die "Malformed if..endif SSI structure" if defined $self->{'seen_true'};
 
     $self->_handle_ifs( $self->_eval_vars($args->{'expr'}) );
-    return;
+    return '';
 }
 
 sub ssi_elif {
@@ -135,7 +135,7 @@ sub ssi_elif {
     die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
     
     $self->_handle_ifs( $self->_eval_vars($args->{'expr'}) );
-    return;
+    return '';
 }
 
 sub ssi_else {
@@ -144,7 +144,7 @@ sub ssi_else {
     die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
     
     $self->_handle_ifs(1);
-    return;
+    return '';
 }
 
 sub ssi_endif {
@@ -154,7 +154,7 @@ sub ssi_endif {
     
     $self->{'seen_true'} = undef;
     $self->{'suspend'} = 0;
-    return;
+    return '';
 }
 
 sub _handle_ifs {
@@ -181,7 +181,7 @@ sub ssi_include {
     unless ($subr->run == OK) {
         $self->error("Include of '@{[$subr->filename()]}' failed: $!");
     }
-    return;
+    return '';
 }
 
 sub ssi_fsize { 
@@ -197,7 +197,7 @@ sub ssi_fsize {
         return sprintf("%4dM", ($size + 524288)/1048576);
     } else {
         $self->error("Unrecognized size format '$self->{'sizefmt'}'");
-        return;
+        return '';
     }
 }
 
@@ -231,7 +231,7 @@ sub ssi_exec {
     my $r = $self->{_r};
     my $filename = $r->filename;
 
-    unless($r->allow_options & OPT_EXECCGI) {
+    if ($r->allow_options & OPT_INCNOEXEC) {
         $self->error("httpd: exec used but not allowed in $filename");
         return "";
     }
@@ -239,14 +239,14 @@ sub ssi_exec {
     
     unless (exists $args->{cgi}) {
         $self->error("No 'cmd' or 'cgi' argument given to #exec");
-        return;
+        return '';
     }
 
     # Okay, we're doing <!--#exec cgi=...>
     my $rr = $r->lookup_uri($args->{cgi});
     unless ($rr->status == 200) {
         $self->error("Error including cgi: subrequest returned status '" . $rr->status . "', not 200");
-        return;
+        return '';
     }
     
     # Pass through our own path_info and query_string (does this work?)
@@ -255,7 +255,7 @@ sub ssi_exec {
     $rr->content_type("application/x-httpd-cgi");
     
     my $status = $rr->run;
-    return;
+    return '';
 }
 
 sub ssi_perl {
@@ -307,7 +307,7 @@ sub ssi_set {
     
     $self->_interp_vars($args->{value});
     $self->{_r}->subprocess_env( $args->{var}, $args->{value} );
-    return;
+    return '';
 }
 
 sub ssi_config {
@@ -316,7 +316,7 @@ sub ssi_config {
     $self->{'errmsg'}  =    $args->{'errmsg'}  if exists $args->{'errmsg'};
     $self->{'sizefmt'} = lc $args->{'sizefmt'} if exists $args->{'sizefmt'};
     $self->error("'timefmt' not implemented by " . __PACKAGE__) if exists $args->{'timefmt'};
-    return;
+    return '';
 }
 
 sub ssi_echo {

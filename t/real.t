@@ -3,9 +3,8 @@
 # This test will start up a real httpd server with Apache::SSI loaded in
 # it, and make several requests on that server.
 
-# Change this to the path to a mod_perl-enabled Apache web server.
+# Change this to the path for a mod_perl-enabled Apache web server.
 my $HTTPD = "/home/ken/http/httpd";
-#my $HTTPD = "/path/to/httpd";
 
 my $PORT = 8228;     # The port the server will run on
 my $USER = 'http';   # The user the server will run as
@@ -51,6 +50,8 @@ my %requests = (
 	11 => 'include_cgi.ssi/path?query',
 	12 => 'if.ssi',
 	13 => 'if2.ssi',
+	14 => 'escape.ssi',
+	15 => 'exec_cmd.ssi',
 );
 
 

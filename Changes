@@ -1,5 +1,12 @@
 Revision history for Perl extension Apache::SSI.
 
+2.07
+   - Now requires HTML::SimpleParse 0.06, which fixes a bug in
+     backslash-escaping of HTML key-value pairs.
+
+	- Markus Schuh showed me how to fix the warning (line "85") that I
+     introduced in 2.06.  Thanks!
+
 2.06_1  Wed Feb  3 11:31:52 EST 1999
    - Forgot to include some 'make test' files in the MANIFEST, so they
      didn't get distributed.  No changes to the code here.

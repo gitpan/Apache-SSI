@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '1.99';
+$VERSION = '2.00';
 my $debug = 0;
 
 sub handler($$) {
@@ -32,7 +32,7 @@ sub handler($$) {
 	} else {
 		my $file = $r->filename;
 
-		unless (-e $r->finfo()) {
+		unless (-e $file) {
 			$r->log_error("$file not found");
 			return NOT_FOUND;
 		}

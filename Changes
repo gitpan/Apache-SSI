@@ -6,6 +6,10 @@ Revision history for Perl extension Apache::SSI.
      haven't benchmarked it).  See 
      http://www.modperl.com/chapters/ch8.html#Client_Request_Methods
 
+   - Checks the return status of the call to $r->filter_input.  If you're
+     using Apache::SSI with Apache::Filter, you'll need to upgrade
+     Apache::Filter to version 0.02 to use this version of Apache::SSI.
+
 1.98  Sat Nov  7 02:19:05 EST 1998
    - Will now cooperate with Apache::Filter if you've got it.
 

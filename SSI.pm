@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.14';
+$VERSION = '2.15';
 my $debug = 0;
 
 
@@ -23,6 +23,7 @@ sub handler($$) {
     
     my $fh;
     if ($r->dir_config('Filter') eq 'On') {
+        $r = $r->filter_register;
         my ($status);
         ($fh, $status) = $r->filter_input();
         return $status unless $status == OK;
@@ -41,9 +42,9 @@ sub handler($$) {
             $r->log_error("$file: $!");
             return FORBIDDEN;
         }
-        $r->send_http_header;
     }
-    return if $r->header_only;
+    $r->send_http_header;
+    return OK if $r->header_only;
     
     do {local $/=undef; $pack->new( scalar(<$fh>), $r )}->output;
     return OK;

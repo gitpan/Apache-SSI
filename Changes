@@ -1,5 +1,11 @@
 Revision history for Perl extension Apache::SSI.
 
+2.15  Sun Nov  5 00:24:52 EST 2000
+   Updated code to work with Apache::Filter 1.013 and greater.  If
+   you're using Apache::Filter 1.012 or lower, you must use 2.14 or
+   lower of Apache::SSI.  If you don't use Apache::Filter, you don't
+   need to care.
+
 2.14  Fri Nov  3 16:21:45 EST 2000
    We now use Apache::test for the 'make test' part of installation.
    Made changes throughout the distribution for this.

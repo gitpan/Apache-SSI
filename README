@@ -3,20 +3,28 @@ Hi,
 This is the Apache::SSI module.  
 
 Apache::SSI implements the functionality of mod_include for handling
-server-parsed html documents.  In my mind, there are two main reasons one
-might want to use it: you can sub-class it to implement your own custom SSI
-directives, and/or you can use an OutputChain to get the SSI output first,
-then send it through another PerlHandler.
+server-parsed html documents.  It is meant to run under Apache's mod_perl.  
+
+In my mind, there are two main reasons one might want to use this module:
+you can sub-class it to implement your own custom SSI directives, and/or you
+can use an OutputChain to get the SSI output first, then send it through
+another PerlHandler.
 
 For more specific information, please see the documentation inside SSI.pm,
 by doing "pod2txt SSI.pm", or "perldoc Apache::SSI" once you've installed
 the module.
 
-To install the module, do the usual:
+To install the module:
 
+   <make sure mod_perl and HTML::SimpleParse.pm are installed>
    perl Makefile.PL
    make
    make test
    make install
+
+Note that mod_perl and HTML::SimpleParse must already be installed before
+you install this module.  When you do "perl Makefile.PL", you'll be notified
+if you don't have one or the other (for mod_perl, I check whether
+Apache::Constants.pm is present).
 
 -Ken Williams

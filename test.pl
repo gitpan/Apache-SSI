@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..1\n"; }
+BEGIN { $| = 1; print "1..2\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Apache::SSI;
 $loaded = 1;
@@ -18,3 +18,19 @@ print "ok 1\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
+sub report_result {
+	$TEST_NUM ||= 2;
+	print "not " unless $_[0];
+	print "ok $TEST_NUM\n";
+	
+	print $_[1] if (not $_[0] and $ENV{TEST_VERBOSE});
+	$TEST_NUM++;
+}
+
+# 2
+{
+	my $p = new Apache::SSI( "<!--#echo var=TERM -->" );
+	&report_result(($p->get_output() eq $ENV{TERM}),
+	               $p->get_output() . " eq $ENV{TERM}");
+
+}

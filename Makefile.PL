@@ -7,6 +7,7 @@ WriteMakefile(
     'dist' => { COMPRESS=>"gzip", SUFFIX=>"gz" },
     'PREREQ_PM' => {
        'HTML::SimpleParse' => '0.01',
+       'Apache::Constants' => '1.00',
     }
 
 );

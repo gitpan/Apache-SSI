@@ -6,7 +6,7 @@ use HTML::SimpleParse;
 use Apache::Constants qw(:common OPT_EXECCGI);
 use File::Basename;
 
-$VERSION = '1.90';
+$VERSION = '1.91';
 @ISA = qw(HTML::SimpleParse);
 
 sub handler {
@@ -41,6 +41,9 @@ sub lastmod {
 	return scalar localtime( (stat $_[0])[9] );
 }
 
+
+# Method called by HTML::SimpleParse::output, overrides
+# HTML::SimpleParse::output_ssi.
 sub output_ssi {
 	my $self = shift;
 	my $text = shift;
@@ -49,7 +52,7 @@ sub output_ssi {
 		my $method = lc "ssi_$1";
 		$text =~ s/--$//;
 		no strict('refs');
-		$self->$method( { $self->parse_args($text)} );
+		return $self->$method( { $self->parse_args($text)} );
 	}
 	return;
 }
@@ -66,18 +69,16 @@ sub ssi_include {
 
 sub ssi_fsize { 
 	my ($self, $args) = @_;
-	print( (stat $self->find_file(@{$args}{'file', 'virtual'}))[7] );
+	return -s $self->find_file(@{$args}{'file', 'virtual'});  # $ for BBEdit
 }
 
 sub ssi_flastmod {
 	my($self, $args) = @_;
-	print &lastmod($args->{file} || $self->{_r}->filename);
+	return &lastmod($args->{file} || $self->{_r}->filename);
 }
 
 sub ssi_printenv {
-	foreach (%ENV) {
-		print ("$_: $ENV{$_}<br>\n");	
-	}
+	return join "", map( {"$_: $ENV{$_}<br>\n"} keys %ENV );
 }
 
 sub ssi_exec {
@@ -89,7 +90,7 @@ sub ssi_exec {
 		$r->log_error("httpd: exec used but not allowed in $filename");
 		return "";
 	}
-	print `$args->{cmd}`;
+	return scalar `$args->{cmd}`;
 }
 
 sub ssi_perl {
@@ -104,7 +105,7 @@ sub ssi_perl {
 		$sub = (/::/ ? $_ : "main::$_");
 	}
 	no strict('refs');
-	print &{ $sub }($arg);
+	return scalar &{ $sub }($arg);
 }
 
 sub ssi_set {
@@ -113,11 +114,12 @@ sub ssi_set {
 	# Work around a bug in mod_perl 1.12 that happens when calling
 	# subprocess_env in a void context
 	my $trash = $self->{_r}->subprocess_env( $args->{var}, $args->{value} );
+	return;
 }
 
 sub ssi_config {
-	print STDERR "*** 'config' directive not implemented by Apache::SSI\n";
-	print "<$_[1]>";
+	warn "*** 'config' directive not implemented by Apache::SSI";
+	return "<$_[1]>";
 }
 
 sub ssi_echo {
@@ -126,13 +128,14 @@ sub ssi_echo {
 	my $value;
 	no strict('refs');
 	
-	if ( defined ($value = $self->{_r}->subprocess_env($var)) ) {
-		print $value;
-	} elsif (exists $ENV{$var}) {
-    	print $ENV{$var};
+	if (exists $ENV{$var}) {
+		return $ENV{$var};
+	} elsif ( defined ($value = $self->{_r}->subprocess_env($var)) ) {
+		return $value;
 	} elsif (defined &{"echo_$var"}) {
-		print &{"echo_$var"}($self->{_r});
+		return &{"echo_$var"}($self->{_r});
 	}
+	return '';
 }
 
 sub echo_DATE_GMT { scalar gmtime; }
@@ -176,15 +179,17 @@ You may wish to subclass Apache::SSI for your own extentions
 =head1 DESCRIPTION
 
 Apache::SSI implements the functionality of mod_include for handling
-server-parsed html documents.  In my mind, there are two main reasons
-one might want to use it: you can sub-class it to implement your own
-custom SSI directives, and/or you can use an OutputChain to get the SSI
-output first, then send it through another PerlHandler.
+server-parsed html documents.  It runs under Apache's mod_perl.
 
-Each SSI directive is handled by an Apache::SSI method with the prefix "ssi_".
-For example, <!--#printenv--> is handled by the ssi_printenv method.
-attribute=value pairs are parsed and passed to the method in an 
-anonymous hash.
+In my mind, there are two main reasons you might want to use this module:
+you can sub-class it to implement your own custom SSI directives, and/or you
+can use an OutputChain to get the SSI output first, then send it through
+another PerlHandler.
+
+Each SSI directive is handled by an Apache::SSI method with the prefix
+"ssi_".  For example, <!--#printenv--> is handled by the ssi_printenv method.
+attribute=value pairs inside the SSI tags are parsed and passed to the
+method in an anonymous hash.
 
 =head2 SSI Directives
 
@@ -224,12 +229,10 @@ I haven't tried using Apache::OutputChain myself, so if this module doesn't
 work with OutputChain, please let me know and I'll try to fix it (do modules
 have to be "OutputChain-friendly?").
 
-The version number is 1.90, but that doesn't mean it's stable yet.  This is
-the B<first> version of a virtually complete rewrite of Doug's version 1.14,
-and I didn't want to decrease the version number.
-
 The date output formats are different from mod_include's format.  Anyone know
-a nice way to get the same format without resorting to HTTP::Date?
+a nice way to get the same format without resorting to HTTP::Date?  [update:
+Byron Brummer suggests that I check out the POSIX::strftime() function,
+included in the standard distribution.]
 
 Currently, the way <!--#echo var=whatever--> looks for variables is
 to first try $r->subprocess_env, then try %ENV, then the five extra environment
@@ -258,7 +261,7 @@ Based on original version by Doug MacEachern dougm@osf.org
 
 =head1 COPYRIGHT
 
-Copyright 1998 Swarthmore College.
+Copyright 1998 Swarthmore College.  All rights reserved.
 
 This library is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.

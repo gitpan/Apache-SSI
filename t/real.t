@@ -44,6 +44,8 @@ my %requests = (
 	4  => 'file.ssi',
 	5  => 'kid.ssik',
 	6  => 'virtual.ssi',
+	7  => 'incl_rel.ssi',
+	8  => 'incl_rel2.ssi',
 );
 
 

@@ -1,5 +1,25 @@
 Revision history for Perl extension Apache::SSI.
 
+1.97  Thu Oct 22 02:43:34 EDT 1998
+   - Fixed DOCUMENT_NAME, DOCUMENT_URI, and LAST_MODIFIED so they return information
+     about the document the user requested, not the document we're currently
+     processing (which might be an <!--#include-->'d file).  Test 7 in real.t
+     witnesses the change.  
+     This behavior is consistent with mod_include, and I think it's also desirable:
+     the browser shouldn't see the names of documents we're including.
+     [thanks, Bruce Hoylman]
+     
+   - Now the three above ENV variables cache their results in the subprocess_env
+     table, which will speed things up if you call them repeatedly.  This is similar
+     to mod_include, but mod_include puts them there at the _beginning_ of the 
+     request, whereas I wait until they're asked for.
+     
+
+1.96  Fri Oct 16 20:10:54 EDT 1998
+   - Added a text() method for getting/setting the contents of the HTML.
+     This fixes a bug when used with Apache::SSIChain.  
+     [thanks, John Armstrong]
+
 1.95  Sun Oct 11 16:04:19 EDT 1998
 
    - Doesn't rely on HTML::SimpleParse anymore to parse the HTML, but instead just

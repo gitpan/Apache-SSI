@@ -6,7 +6,7 @@ use Apache::Constants qw(:common OPT_EXECCGI);
 use File::Basename;
 use HTML::SimpleParse;
 
-$VERSION = '1.95';
+$VERSION = '1.97';
 my $debug = 0;
 
 sub handler($$) {
@@ -47,10 +47,19 @@ sub new {
 	}, $pack;
 }
 
+sub text {
+	my $self = shift;
+	if (@_) {
+		$self->{'text'} = shift;
+	}
+	return $self->{'text'};
+}
+
 sub get_output($) {
 	my $self = shift;
 	
 	my $out = '';
+#	my @parts = split m/(<!--#(?:[^-]|-+[^>-])*-*-->)/s, $self->{'text'};
 	my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
 	while (@parts) {
 		$out .= shift @parts;
@@ -76,10 +85,6 @@ sub output($) {
 			print $self->output_ssi($1);
 		} else { die 'Parse error' }
 	}
-}
-
-sub lastmod($) {
-	return scalar localtime( (stat $_[0])[9] );
 }
 
 sub output_ssi($$) {
@@ -121,7 +126,7 @@ sub ssi_flastmod($$) {
 	} else {
 		$req = $self->{_r};
 	}
-	return &lastmod( $req->filename() );
+	return &_lastmod( $req->filename() );
 }
 
 sub ssi_printenv() {
@@ -207,9 +212,27 @@ sub ssi_echo($$) {
 
 sub echo_DATE_GMT() { scalar gmtime; }
 sub echo_DATE_LOCAL() { scalar localtime; }
-sub echo_DOCUMENT_NAME($) { basename $_[0]->filename; }
-sub echo_DOCUMENT_URI($) { $_[0]->uri; }
-sub echo_LAST_MODIFIED($) { &lastmod($_[0]->filename); }
+sub echo_DOCUMENT_NAME($) {
+    my $r = _2main(shift);
+    return &_set_VAR($r, 'DOCUMENT_NAME', basename $r->filename);
+}
+sub echo_DOCUMENT_URI($) {
+    my $r = _2main(shift);
+    return &_set_VAR($r, 'DOCUMENT_URI', $r->uri);
+}
+sub echo_LAST_MODIFIED($) {
+    my $r = _2main(shift);
+    return &_set_VAR($r, 'LAST_MODIFIED', &_lastmod($r->filename));
+}
+
+sub _set_VAR($$$) {
+    $_[0]->subprocess_env($_[1], $_[2]);
+    return $_[2];
+}
+
+sub _2main { $_[0]->is_main() ? $_[0] : $_[0]->main() }
+
+sub _lastmod($) { scalar localtime( (stat $_[0])[9] ) }
 
 1;
 
@@ -339,10 +362,6 @@ Not supported yet.
 
 =head1 CAVEATS
 
-I haven't tried using Apache::OutputChain myself, so if this module doesn't
-work with OutputChain, please let me know and I'll try to fix it (do modules
-have to be "OutputChain-friendly?").
-
 The date output formats are different from mod_include's format.  Anyone know
 a nice way to get the same format without resorting to HTTP::Date?  [update:
 Byron Brummer suggests that I check out the POSIX::strftime() function,
@@ -354,7 +373,7 @@ variables mod_include supplies.  Is this the correct order?
 
 =head1 TO DO
 
-Make sure things that use virtual paths are doing them correctly.  (Ibid)
+#if .. #else should be possible now, I'll take a stab it implementing it.
 
 Revisit http://www.apache.org/docs/mod/mod_include.html and see what else
 there I can implement.
@@ -379,8 +398,8 @@ Apache::OutputChain(3)
 
 Ken Williams ken@forum.swarthmore.edu
 
-Concept based on original version by Doug MacEachern dougm@osf.org, 
-implementation different.
+Concept based on original version by Doug MacEachern dougm@osf.org .
+Implementation different.
 
 =head1 COPYRIGHT
 

@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.00';
+$VERSION = '2.01';
 my $debug = 0;
 
 sub handler($$) {

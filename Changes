@@ -1,6 +1,12 @@
 Revision history for Perl extension Apache::SSI.
 
-1.99
+2.01 Wed Nov 11 18:31:12 EST 1998
+   - Backed out the $r->finfo change from 1.99 because of some reported
+     problems with it.
+
+2.00 (not formally released, because I forgot to add to the Changes file)
+
+1.99  Mon, 09 Nov 1998 07:45:47 GMT
    - Uses $r->finfo for doing file-test operations, instead of using $r->filename.
      Supposedly this speeds things up by avoiding an expensive system call (I
      haven't benchmarked it).  See 

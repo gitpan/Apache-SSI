@@ -3,6 +3,7 @@ MANIFEST
 Makefile.PL
 README
 SSI.pm
+lib/Apache/FakeSSI.pm
 t/benchmark.pl
 t/docs.check/10
 t/docs.check/11
@@ -10,6 +11,8 @@ t/docs.check/12
 t/docs.check/13
 t/docs.check/14
 t/docs.check/15
+t/docs.check/16
+t/docs.check/18
 t/docs.check/3
 t/docs.check/4
 t/docs.check/5
@@ -32,8 +35,10 @@ t/docs/incl_rel.ssi
 t/docs/incl_rel2.ssi
 t/docs/include_cgi.ssi
 t/docs/kid.ssik
+t/docs/kid2.ssik
 t/docs/set_var.ssi
 t/docs/virtual.ssi
+t/docs/virtual.ssif
 t/docs/xssi.ssi
 t/fake.t
 t/lib/Apache/Kid.pm

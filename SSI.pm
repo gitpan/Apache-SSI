@@ -8,7 +8,7 @@ use HTML::SimpleParse;
 use Symbol;
 use POSIX;
 
-$VERSION = '2.16';
+$VERSION = '2.17';
 my $debug = 0;
 
 
@@ -46,6 +46,7 @@ sub handler($$) {
 
 sub new {
   my ($pack, $text, $r) = @_;
+  $pack = ref($pack) if ref($pack);
   
   return bless 
     {

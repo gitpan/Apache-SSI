@@ -38,20 +38,26 @@ __DATA__
 AddType text/html .html
 
 PerlModule Apache::SSI
+PerlModule Apache::FakeSSI
 PerlModule Apache::Kid
 PerlModule Apache::Status
 
 <Files ~ "\.ssi$">
  SetHandler perl-script
-  PerlHandler Apache::SSI
+ PerlHandler Apache::SSI
+</Files>
+
+<Files ~ "\.ssif$">
+ SetHandler perl-script
+ PerlHandler Apache::FakeSSI
 </Files>
 
 <Files ~ "\.ssik$">
  SetHandler perl-script
-  PerlHandler Apache::Kid
+ PerlHandler Apache::Kid
 </Files>
 
 <Location /perl-status>
  SetHandler perl-script
-  PerlHandler Apache::Status
+ PerlHandler Apache::Status
 </Location>

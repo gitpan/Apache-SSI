@@ -23,6 +23,7 @@ my %requests = (
 	15 => '/docs/exec_cmd.ssi',
 	16 => '/docs/kid2.ssik',
 	17 => '/docs/flastmod.ssi',
+	18 => '/docs/virtual.ssif',
 );
 my %special_tests = (
 	17 => sub {my $year = (localtime)[5]+1900; shift->content =~ /Year: $year/},

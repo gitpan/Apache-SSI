@@ -1,5 +1,13 @@
 Revision history for Perl extension Apache::SSI.
 
+2.17  Mon Jan 14 13:58:21 CST 2002
+   Added the Apache::FakeSSI class, which implements server-side
+   includes in pure-perl so that its output can be filtered via
+   Apache::Filter.  Note that its <!--#exec cgi="..."--> isn't
+   functional yet.
+
+   Fixed a problem with the MANIFEST - file t/docs.check/16 was missing.
+
 2.16  Sun Dec  3 17:43:20 EST 2000
    The 'Filter' directive is now properly recognized as case-insensitive.
 

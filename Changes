@@ -1,7 +1,16 @@
 Revision history for Perl extension Apache::SSI.
 
-2.12  Mon May 15 18:50:37 EDT 2000
+2.13  Sun Jun  4 01:34:36 EDT 2000
+   Since HTML::SimpleParse now handles case-sensitivity correctly, we
+   need to be a bit more careful in this module.  If you're using
+   HTML::SimpleParse version 0.09 or greater, you'll need this here
+   version (1.13) of Apache::SSI or greater if you want SSI to work.
 
+   Improved the error message you get when there's no 'file' or 'virtual'
+   attribute of an <!--#include--> tag.
+
+
+2.12  Mon May 15 18:50:37 EDT 2000
    Don't force content_type to be 'text/html'.  Let the server admin
    decide that in the httpd.conf file.  [danmcc@metro.net (Dan McCormick)]
 

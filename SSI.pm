@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.12';
+$VERSION = '2.13';
 my $debug = 0;
 
 sub handler($$) {
@@ -113,6 +113,7 @@ sub output_ssi {
         my $method = lc "ssi_$tag";
 
         warn "returning \$self->$method($text)" if $debug;
+	local $HTML::SimpleParse::FIX_CASE = -1;
         my $args = [ HTML::SimpleParse->parse_args($text) ];
         warn ("args are " . join (',', @{$args})) if $debug;
         return $self->$method( {@$args}, $args );
@@ -176,19 +177,22 @@ sub _handle_ifs {
 
 
 sub ssi_include {
-    my ($self, $args) = @_;
-    my $subr = $self->find_file($args);
-    unless ($subr->run == OK) {
-        $self->error("Include of '@{[$subr->filename()]}' failed: $!");
-    }
-
-#    # Make sure that all of the variables set in the include are present here.
-#    my $env = $subr->subprocess_env();
-#    foreach ( keys %$env ) {
-#      $self->{_r}->subprocess_env($_, $env->{$_});
-#    }
-
-    return '';
+  my ($self, $args) = @_;
+  unless (exists $args->{file} or exists $args->{virtual}) {
+    return $self->error("No 'file' or 'virtual' attribute found in SSI 'include' tag");
+  }
+  my $subr = $self->find_file($args);
+  unless ($subr->run == OK) {
+    $self->error("Include of '@{[$subr->filename()]}' failed: $!");
+  }
+  
+  ## Make sure that all of the variables set in the include are present here.
+  #my $env = $subr->subprocess_env();
+  #foreach ( keys %$env ) {
+  #  $self->{_r}->subprocess_env($_, $env->{$_});
+  #}
+  
+  return '';
 }
 
 sub ssi_fsize { 

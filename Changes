@@ -1,8 +1,19 @@
 Revision history for Perl extension Apache::SSI.
 
-1.90  Fri Jun 26 18:07:57 1998
-	- original version; created by h2xs 1.18.  Actually a re-write of Doug
-	  MacEachern's original version.
+1.94  Wed Oct  7 19:57:03 EDT 1998
+   - Apache::SSI can now be subclassed much more easily under mod_perl,
+     because it knows how to deal with PERL_METHOD_HANDLERS=1 scenarios.
+     See the docs' SUMMARY for more info.
+   - The tests have been moved into the t/ directory, and there's a new
+     real.t test that will start an apache server and fetch a few pages.
+
+1.93  Wed Sep 23 15:53:21 EDT 1998
+   - You can now pass multiple arguments to a <!--#perl--> routine.
+
+1.92  Sat Sep 19 01:55:50 EDT 1998
+   - Added a "return;" statement to the ssi_include routine.  Avoids printing
+     an extraneous "1" in the served page.  Don't know how I missed this
+     before.  Thanks to Gil Vidals.
 
 1.91  Sun Jun 28 17:49:29 EDT 1998
    - In README and Makefile.PL, I've noted that mod_perl must be installed
@@ -12,14 +23,9 @@ Revision history for Perl extension Apache::SSI.
 	  which requires that each output_* function return its output rather than
 	  print it.
 
-1.92  Sat Sep 19 01:55:50 EDT 1998
-   - Added a "return;" statement to the ssi_include routine.  Avoids printing
-     an extraneous "1" in the served page.  Don't know how I missed this
-     before.  Thanks to Gil Vidals.
-
-1.93  Wed Sep 23 15:53:21 EDT 1998
-   - You can now pass multiple arguments to a <!--#perl--> routine.
-
+1.90  Fri Jun 26 18:07:57 1998
+	- original version; created by h2xs 1.18.  Actually a re-write of Doug
+	  MacEachern's original version.
 
 mod_include has this:
      if (!(allow_options(r) & OPT_INCLUDES)) {

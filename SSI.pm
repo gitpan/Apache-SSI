@@ -6,12 +6,20 @@ use HTML::SimpleParse;
 use Apache::Constants qw(:common OPT_EXECCGI);
 use File::Basename;
 
-$VERSION = '1.93';
+$VERSION = '1.94';
 @ISA = qw(HTML::SimpleParse);
 my $debug = 0;
 
-sub handler {
-	my($r) = @_;
+sub handler($$) {
+	my($pack,$r_orig) = @_;  # Handles subclassing via PerlMethodHandler
+	my $r;
+	if ($r_orig) {
+		$r = $r_orig;
+	} else {
+		$r = $pack;
+		$pack = __PACKAGE__;
+	}
+	
 	%ENV = $r->cgi_env; #for exec
 	$r->content_type("text/html");
 	my $file = $r->filename;
@@ -28,7 +36,7 @@ sub handler {
 	}
 	
 	$r->send_http_header;
-	Apache::SSI->new( join('', <IN>), $r )->output;
+	$pack->new( join('', <IN>), $r )->output;
 	return OK;
 }
 
@@ -99,12 +107,22 @@ sub ssi_exec {
 
 sub ssi_perl {
 	my($self, $args, $margs) = @_;
-	local $_ = $args->{sub};
-	my @args = eval {
-		return (split/,/, $args->{args}) if exists ($args->{args});
-		return $self->multi_args('arg', $margs) if exists ($args->{arg});
-		return;
-	};
+	local $_;
+	my (@arg1, @arg2);
+	{
+		my @a;
+		while (@a = splice(@$margs, 0, 2)) {
+			if ($a[0] eq 'sub') {
+				$_ = $a[1];
+			} elsif ($a[0] eq 'arg') {
+				push @arg1, $a[1];
+			} elsif ($a[0] eq 'args') {
+				push @arg1, split(/,/, $a[1]);
+			} else {
+				push @arg2, @a;
+			}
+		}
+	}
 
 	my $sub;
 	if ( /^\s*sub[^\w:]/ ) {     # for <!--#perl sub="sub {print ++$Access::Cnt }" -->
@@ -112,9 +130,9 @@ sub ssi_perl {
 	} else {             # for <!--#perl sub="package::subr" -->
 		$sub = (/::/ ? $_ : "main::$_");
 	}
-	warn "sub is $sub, args are @args" if $debug;
+	warn "sub is $sub, args are @arg1 & @arg2" if $debug;
 	no strict('refs');
-	return scalar &{ $sub }(@args);
+	return scalar &{ $sub }(@arg1, @arg2);
 }
 
 sub multi_args {
@@ -174,14 +192,16 @@ Apache::SSI - Implement Server Side Includes in Perl
 
 =head1 SYNOPSIS
 
-wherever you choose:
+In httpd.conf:
 
-<Files *.phtml>
-SetHandler perl-script
-PerlHandler Apache::SSI
-</Files>
+    <Files *.phtml>  # or whatever
+    SetHandler perl-script
+    PerlHandler Apache::SSI
+    </Files>
 
-You may wish to subclass Apache::SSI for your own extentions
+You may wish to subclass Apache::SSI for your own extensions.  If so,
+compile mod_perl with PERL_METHOD_HANDLERS=1 (so you can use object-oriented
+inheritance), and create a module like this:
 
     package MySSI;
     use Apache::SSI ();
@@ -194,7 +214,14 @@ You may wish to subclass Apache::SSI for your own extentions
        my $cmd = $attr->{param};
        ...
        return $a_string;   
-    } 
+    }
+ 
+ Then in httpd.conf:
+ 
+    <Files *.phtml>
+     SetHandler perl-script
+     PerlHandler MySSI
+    </Files>
 
 =head1 DESCRIPTION
 
@@ -293,6 +320,7 @@ It would also be nice to mix & match the "arg" and "args" parameters to
 
  <!--#perl sub=something arg="Hi, Ken" args=5,12,13 arg="Bye, Ken"-->
 
+I'd like to know how to use Apache::test for the real.t test.
 
 =head1 BUGS
 

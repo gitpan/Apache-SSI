@@ -3,4 +3,13 @@ MANIFEST
 Makefile.PL
 README
 SSI.pm
-test.pl
+t/fake.t
+t/real.t
+t/Kid.pm
+t/docs/bare.ssi
+t/docs/file.ssi
+t/docs/incl
+t/docs/kid.ssik
+t/docs.check/2
+t/docs.check/3
+t/docs.check/4

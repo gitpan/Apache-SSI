@@ -1,5 +1,18 @@
 Revision history for Perl extension Apache::SSI.
 
+2.12  Mon May 15 18:50:37 EDT 2000
+
+   Don't force content_type to be 'text/html'.  Let the server admin
+   decide that in the httpd.conf file.  [danmcc@metro.net (Dan McCormick)]
+
+   Get the port, user, group, and path to httpd from the user at 'perl
+   Makefile.PL' time.  This stuff is used during the 'make test' step.
+   This module should now behave like Apache::Filter and
+   Apache::AuthCookie with respect to those 4 parameters at test time.
+   [perrin@primenet.com (Perrin Harkins) and Pin-Chieh.Wang@compaq.com
+   (Wang, Pin-Chieh)]
+
+
 2.11  Sun Feb 20 12:03:38 EST 2000
    - Fixed a bug in which $/ was being set to undef in Perl code called by
      <!--#perl--> directives (wald@library.ho.lucent.com (Robert Waldstein)).

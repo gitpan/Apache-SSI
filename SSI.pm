@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.11';
+$VERSION = '2.12';
 my $debug = 0;
 
 sub handler($$) {
@@ -19,8 +19,6 @@ sub handler($$) {
         $r = $pack;
         $pack = __PACKAGE__;
     }
-    
-    $r->content_type("text/html");
     
     my $fh;
     if ($r->dir_config('Filter') eq 'On') {
@@ -183,6 +181,13 @@ sub ssi_include {
     unless ($subr->run == OK) {
         $self->error("Include of '@{[$subr->filename()]}' failed: $!");
     }
+
+#    # Make sure that all of the variables set in the include are present here.
+#    my $env = $subr->subprocess_env();
+#    foreach ( keys %$env ) {
+#      $self->{_r}->subprocess_env($_, $env->{$_});
+#    }
+
     return '';
 }
 

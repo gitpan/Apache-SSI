@@ -1,14 +1,15 @@
 package Apache::test;
 
 use strict;
-use vars qw(@EXPORT $USE_THREAD $USE_SFIO $PERL_DIR);
+use vars qw(@EXPORT $USE_THREAD $USE_SFIO $PERL_DIR @EXPORT_OK);
 use Exporter ();
 use Config;
 use FileHandle ();
 *import = \&Exporter::import;
 
-@EXPORT = qw(test fetch simple_fetch have_module skip_test 
+@EXPORT = qw(test fetch simple_fetch have_module skip_test
 	     $USE_THREAD $USE_SFIO $PERL_DIR WIN32 grab run_test); 
+@EXPORT_OK = qw(have_httpd);
 
 BEGIN { 
     if(not $ENV{MOD_PERL}) {
@@ -46,6 +47,7 @@ unless (defined &Apache::bootstrap) {
 
 sub write_httpd_conf {
     my $pkg = shift;
+    return unless &have_httpd;
     my %args = (conf_file => 't/httpd.conf', @_);
     my $DIR = `pwd`; chomp $DIR;
 
@@ -73,9 +75,9 @@ ScoreBoardFile /dev/null
 AddType text/html .html
 
 # Look in ./blib/lib
-#PerlModule ExtUtils::testlib
 <Perl>
- use lib "$DIR/blib/lib", "$DIR/t/lib";
+ use blib '$DIR';
+ use lib  '$DIR/t/lib';
 </Perl>
 
 $args{include}
@@ -155,6 +157,8 @@ sub _read_existing_conf {
     
     my @modules       =   grep /^\s*(Add|Load)Module/, @lines;
     my ($server_root) = (map /^\s*ServerRoot\s*(\S+)/, @lines);
+    $server_root =~ s/^"//;
+    $server_root =~ s/"$//;
 
     # Rewrite all modules to load from an absolute path.
     foreach (@modules) {
@@ -315,6 +319,10 @@ sub have_module {
 sub skip_test {
     print "1..0\n";
     exit;
+}
+
+sub have_httpd {
+    return -e 't/httpd';
 }
 
 sub run {
@@ -510,7 +518,7 @@ __END__
 
 =head1 NAME
 
-Apache::Test - Facilitates testing of Apache::* modules
+Apache::test - Facilitates testing of Apache::* modules
 
 =head1 SYNOPSIS
 
@@ -521,7 +529,9 @@ Apache::Test - Facilitates testing of Apache::* modules
  *MY::test = sub { Apache::test->MM_test(%params) };
 
  # In t/*.t script (or test.pl)
- (Some methods of Doug's that I haven't reviewed or documented yet)
+ use Apache::test qw(skip_test have_httpd);
+ skip_test unless have_httpd;
+ (Some more methods of Doug's that I haven't reviewed or documented yet)
 
 =head1 DESCRIPTION
 

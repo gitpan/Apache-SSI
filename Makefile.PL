@@ -6,13 +6,13 @@ my %params = Apache::test->get_test_params();
 chomp (my $cwd = `pwd`);
 Apache::test->write_httpd_conf
     (%params, 
-     include => join '', <DATA>);
+     include => do {local $/; open FH, 't/config.incl' or die $!; <FH>});
 *MY::test = sub { Apache::test->MM_test(%params) };
 
 
 my $module = 'Apache::SSI';
 my ($name, $dir);
-($name = $module) =~ s/.*::(\w+)/$1.pm/;
+($name = $module) =~ s{::}{/}g; $name = "lib/$name.pm";
 ($dir  = $module) =~ s/::/-/g;
 
 WriteMakefile
@@ -32,32 +32,3 @@ WriteMakefile
 		   'HTML::SimpleParse' => '0.06',
 		  }
   );
-
-
-__DATA__
-AddType text/html .html
-
-PerlModule Apache::SSI
-PerlModule Apache::FakeSSI
-PerlModule Apache::Kid
-PerlModule Apache::Status
-
-<Files ~ "\.ssi$">
- SetHandler perl-script
- PerlHandler Apache::SSI
-</Files>
-
-<Files ~ "\.ssif$">
- SetHandler perl-script
- PerlHandler Apache::FakeSSI
-</Files>
-
-<Files ~ "\.ssik$">
- SetHandler perl-script
- PerlHandler Apache::Kid
-</Files>
-
-<Location /perl-status>
- SetHandler perl-script
- PerlHandler Apache::Status
-</Location>

@@ -1,5 +1,29 @@
 Revision history for Perl extension Apache::SSI.
 
+2.19  Wed Jan 26 21:57:36 CST 2005
+
+ - We now use $r->print() instead of print() inside SSI.pm, because
+   the latter seemed to have buffering problems.
+
+ - Added a Build.PL for installation via Module::Build.
+
+ - Modified ssi_include() to check for an HTTP_OK status from the
+   subrequest in addition to an OK status from the handler. [Aaron
+   Ross]
+
+ - Fixed an undefined-value warning that occurred in the time-related
+   components when the time zone wasn't set. [Aaron Ross]
+
+ - Made some modernization updates to the Apache::test module we use
+   during testing.
+
+ - Use Test.pm for testing output rather than my custom stuff.
+
+2.18  Tue Jan 22 12:22:16 CST 2002
+   Doing an include can mess up %ENV (and thus the query string, and
+   the table of set variables), so we now make sure we restore it after
+   executing a subrequest.
+
 2.17  Mon Jan 14 13:58:21 CST 2002
    Added the Apache::FakeSSI class, which implements server-side
    includes in pure-perl so that its output can be filtered via

@@ -2,13 +2,13 @@ package Apache::SSI;
 
 use strict;
 use vars qw($VERSION);
-use Apache::Constants qw(:common OPT_INCNOEXEC);
+use Apache::Constants qw(:common :http OPT_INCNOEXEC);
 use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 use POSIX;
 
-$VERSION = '2.17';
+$VERSION = '2.19';
 my $debug = 0;
 
 
@@ -95,11 +95,11 @@ sub output {
     
     my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
     while (@parts) {
-        print( ('', shift @parts)[1-$self->{'suspend'}[0]] );
+        $self->{_r}->print( ('', shift @parts)[1-$self->{'suspend'}[0]] );
         last unless @parts;
         my $ssi = shift @parts;
         if ($ssi =~ m/^<!--#(.*)-->$/s) {
-            print $self->output_ssi($1);
+            $self->{_r}->print( $self->output_ssi($1) );
         } else { die 'Parse error' }
     }
 }
@@ -112,10 +112,8 @@ sub output_ssi {
         return if ($self->{'suspend'}[0] and not $tag =~ /^(if|elif|else|endif)/);
         my $method = lc "ssi_$tag";
 
-        warn "returning \$self->$method($text)" if $debug;
 	local $HTML::SimpleParse::FIX_CASE = -1;
         my $args = [ HTML::SimpleParse->parse_args($text) ];
-        warn ("args are " . join (',', @{$args})) if $debug;
         return $self->$method( {@$args}, $args );
     }
     return '';
@@ -173,16 +171,18 @@ sub ssi_include {
     return $self->error("No 'file' or 'virtual' attribute found in SSI 'include' tag");
   }
   my $subr = $self->find_file($args);
-  unless ($subr->run == OK) {
-    $self->error("Include of '@{[$subr->filename()]}' failed: $!");
+
+  # Subrequests can fuck up %ENV, make sure it's restored upon exit.
+  # Unfortunately 'local(%ENV)=%ENV' reportedly causes segfaults.
+  my %save_ENV = %ENV;
+
+  if ( $subr->status == HTTP_OK ) {
+    $subr->run == OK
+      or $self->error("Include of '@{[$subr->filename()]}' failed: $!");
   }
   
-  ## Make sure that all of the variables set in the include are present here.
-  #my $env = $subr->subprocess_env();
-  #foreach ( keys %$env ) {
-  #  $self->{_r}->subprocess_env($_, $env->{$_});
-  #}
-  
+  %ENV = %save_ENV;
+
   return '';
 }
 
@@ -434,7 +434,7 @@ sub _format_time {
 sub _time_args {
   # This routine must respect the caller's wantarray() context.
   my ($self, $time, $zone) = @_;
-  return $zone =~ /GMT/ ? gmtime($time) : localtime($time);
+  return ($zone && $zone =~ /GMT/) ? gmtime($time) : localtime($time);
 }
 
 sub _lastmod {
@@ -683,7 +683,7 @@ Apache::OutputChain(3)
 
 =head1 AUTHOR
 
-Ken Williams ken@forum.swarthmore.edu
+Ken Williams ken@mathforum.org
 
 Concept based on original version by Doug MacEachern dougm@osf.org .
 Implementation different.

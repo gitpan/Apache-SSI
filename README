@@ -210,7 +210,7 @@ SEE ALSO
     Apache::OutputChain(3)
 
 AUTHOR
-    Ken Williams ken@forum.swarthmore.edu
+    Ken Williams ken@mathforum.org
 
     Concept based on original version by Doug MacEachern dougm@osf.org .
     Implementation different.

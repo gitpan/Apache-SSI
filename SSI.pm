@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '1.98';
+$VERSION = '1.99';
 my $debug = 0;
 
 sub handler($$) {
@@ -25,13 +25,14 @@ sub handler($$) {
 	
 	my $fh;
 	if ($r->can('filter_input')) {
-		$fh = $r->filter_input();
-		warn "Using filter_input fh: $fh" if $debug;
+		my ($status);
+		($fh, $status) = $r->filter_input();
+		return $status unless $status == OK;
+		
 	} else {
 		my $file = $r->filename;
-		warn "File is $file" if $debug;
 
-		unless (-e $file) {
+		unless (-e $r->finfo()) {
 			$r->log_error("$file not found");
 			return NOT_FOUND;
 		}
@@ -42,8 +43,6 @@ sub handler($$) {
 			return FORBIDDEN;
 		}
 		$r->send_http_header;
-
-		warn "Set fh to $fh" if $debug;
 	}
 	
 	$pack->new( join('', <$fh>), $r )->output;
@@ -304,8 +303,9 @@ server-parsed html documents.  It runs under Apache's mod_perl.
 
 In my mind, there are two main reasons you might want to use this module:
 you can sub-class it to implement your own custom SSI directives, and/or you
-can use an OutputChain to get the SSI output first, then send it through
-another PerlHandler.
+can parse the output of other mod_perl handlers, or send the SSI output
+through another handler (use Apache::Filter or Apache::OutputChain to 
+do these).
 
 Each SSI directive is handled by an Apache::SSI method with the prefix
 "ssi_".  For example, <!--#printenv--> is handled by the ssi_printenv method.
@@ -381,6 +381,43 @@ SSI calls.
 Not supported yet.
 
 =back
+
+=head1 CHAINING HANDLERS
+
+There are two fairly simple ways for this module to exist in a stacked handler
+chain.  The first uses C<Apache::Filter>, and your httpd.conf would look something
+like this:
+
+ PerlModule Apache::Filter
+ PerlModule Apache::SSI
+ PerlModule My::BeforeSSI
+ PerlModule My::AfterSSI
+ <Files ~ "\.ssi$">
+  SetHandler perl-script
+  PerlHandler My::BeforeSSI Apache::SSI My::AfterSSI
+ </Files>
+
+The second uses C<Apache::OutputChain>, and your httpd.conf would look something
+like this:
+
+ PerlModule Apache::OutputChain
+ PerlModule Apache::SSIChain
+ PerlModule My::BeforeSSI
+ PerlModule My::AfterSSI
+ <Files ~ "\.ssi$">
+  SetHandler perl-script
+  PerlHandler Apache::OutputChain My::AfterSSI Apache::SSIChain My::BeforeSSI
+ </Files>
+
+Note that the order of handlers is reversed in the two different methods.  One 
+reason I wrote C<Apache::Filter> is to get the order to be more intuitive.  
+Another reason is that C<Apache::SSI> itself can be used in a handler stack using
+C<Apache::Filter>, whereas it needs to be wrapped in C<Apache::SSIChain> to 
+be used with C<Apache::OutputChain>.
+
+Please see the documentation for C<Apache::OutputChain> and C<Apache::Filter>
+for more specific information.
+ 
 
 =head1 CAVEATS
 

@@ -4,6 +4,7 @@ Makefile.PL
 README
 SSI.pm
 t/Kid.pm
+t/benchmark.pl
 t/docs.check/3
 t/docs.check/4
 t/docs.check/5
@@ -21,4 +22,3 @@ t/docs/kid.ssik
 t/docs/virtual.ssi
 t/fake.t
 t/real.t
-

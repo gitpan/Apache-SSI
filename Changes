@@ -1,5 +1,11 @@
 Revision history for Perl extension Apache::SSI.
 
+2.03  Mon Jan  4 04:43:01 EST 1999
+   - Added support for the #if, #elif, #else, and #endif directives
+
+   - Failed includes now report in the error log the name of the file they
+     were trying to include.
+
 2.02  Fri Nov 27 04:25:00 EST 1998
    - Added minimal and probably buggy support for variable interpolation in
 	  SSI directives.

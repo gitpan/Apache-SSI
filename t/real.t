@@ -47,6 +47,7 @@ my %requests = (
 	7  => 'incl_rel.ssi',
 	8  => 'incl_rel2.ssi',
 	9  => 'set_var.ssi',
+	10 => 'xssi.ssi',
 );
 
 

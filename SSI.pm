@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.02';
+$VERSION = '2.03';
 my $debug = 0;
 
 sub handler($$) {
@@ -54,6 +54,9 @@ sub new {
 	return bless {
 		'text' => $text,
 		'_r'   => $r,
+        'suspend' => 0,
+        'seen_true' => undef, # 1 when we've seen a true "if" in this if-chain,
+                              # 0 when we haven't, undef when we're not in an if-chain
 	}, $pack;
 }
 
@@ -69,13 +72,12 @@ sub get_output($) {
 	my $self = shift;
 	
 	my $out = '';
-#	my @parts = split m/(<!--#(?:[^-]|-+[^>-])*-*-->)/s, $self->{'text'};
 	my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
 	while (@parts) {
-		$out .= shift @parts;
+		$out .= ('', shift @parts)[1-$self->{'suspend'}];
 		last unless @parts;
 		my $ssi = shift @parts;
-		if ($ssi =~ m/^<(!--#.*--)>$/) {
+		if ($ssi =~ m/^<!--#(.*)-->$/) {
 			$out .= $self->output_ssi($1);
 		} else { die 'Parse error' }
 	}
@@ -88,10 +90,10 @@ sub output($) {
 	
 	my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
 	while (@parts) {
-		print shift @parts;
+		print( ('', shift @parts)[1-$self->{'suspend'}] );
 		last unless @parts;
 		my $ssi = shift @parts;
-		if ($ssi =~ m/^<(!--#.*--)>$/) {
+		if ($ssi =~ m/^<!--#(.*)-->$/) {
 			print $self->output_ssi($1);
 		} else { die 'Parse error' }
 	}
@@ -100,9 +102,11 @@ sub output($) {
 sub output_ssi($$) {
 	my ($self, $text) = @_;
 	
-	if ($text =~ s/^!--#(\w+)\s*//) {
-		my $method = lc "ssi_$1";
-		$text =~ s/--$//;
+	if ($text =~ s/^(\w+)\s*//) {
+	    my $tag = $1;
+    	return if ($self->{'suspend'} and not $tag =~ /^(if|elif|else|endif)/);
+		my $method = lc "ssi_$tag";
+
 		warn "returning \$self->$method($text)" if $debug;
 		my $args = [ HTML::SimpleParse->parse_args($text) ];
 		warn ("args are " . join (',', @{$args})) if $debug;
@@ -111,9 +115,69 @@ sub output_ssi($$) {
 	return;
 }
 
+sub ssi_if {
+    my ($self, $args) = @_;
+    # Make sure we're not already in an 'if' chain
+    die "Malformed if..endif SSI structure" if defined $self->{'seen_true'};
+
+    $self->_interp_vars($args->{'expr'});
+    $self->_handle_ifs($args->{'expr'});
+    return;
+}
+
+sub ssi_elif {
+    my ($self, $args) = @_;
+    # Make sure we're in an 'if' chain
+    die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
+    
+    $self->_interp_vars($args->{'expr'});
+    $self->_handle_ifs($args->{'expr'});
+    return;
+}
+
+sub ssi_else {
+    my $self = shift;
+    # Make sure we're in an 'if' chain
+    die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
+    
+    $self->_handle_ifs(1);
+    return;
+}
+
+sub ssi_endif {
+    my $self = shift;
+    # Make sure we're in an 'if' chain
+    die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
+    
+    $self->{'seen_true'} = undef;
+    $self->{'suspend'} = 0;
+    return;
+}
+
+sub _handle_ifs {
+    my $self = shift;
+    my $cond = shift;
+    
+    if ($self->{'seen_true'}) {
+        $self->{'suspend'} = 1;
+    } else {
+        if ($cond) {
+            $self->{'suspend'} = 0;
+            $self->{'seen_true'} = 1;
+        } else {
+            $self->{'suspend'} = 1;
+            $self->{'seen_true'} = 0;
+        }
+    }
+}
+
+
 sub ssi_include($$) {
 	my ($self, $args) = @_;
-	$self->find_file($args)->run == OK or $self->{_r}->log_error("include failed: $!");
+	my $subr = $self->find_file($args);
+	unless ($subr->run == OK) {
+		$self->{_r}->log_error("include of '@{[$subr->filename()]}' failed: $!");
+	}
 	return;
 }
 
@@ -260,6 +324,35 @@ sub _interp_vars {
               { ($a,$b,$c) = ($1,$2,$4);
                 $a . substr($b,length($b)/2) . $self->ssi_echo({var=>$c}) }exg;
 }
+# This might be better for _interp_vars:
+#sub _interp_vars {
+#    local $_ = shift;
+#    my $out;
+#
+#    while (1) {
+#
+#        if ( /\G([^\\\$]+)/gc ) {
+#            $out .= $1;
+#            
+#        } elsif ( /\G(\\\\)+/gc ) {
+#            $out .= '\\' x (length($1)/2);
+#            
+#        } elsif ( /\G\\([^\$])/gc ) {
+#            $out .= &escape_char($1);
+#            
+#        } elsif ( /\G\$(\w+)/gc ) {
+#            $out .= &lookup($1);
+#        
+#        } elsif ( /\G\$\{(\w+)\}/gc ) {
+#            $out .= &lookup($1);
+#        
+#        } else {
+#            last;
+#        }
+#    }
+#    $out;
+#}
+
 
 sub _2main { $_[0]->is_main() ? $_[0] : $_[0]->main() }
 
@@ -344,6 +437,14 @@ mod_include's online documentation at http://www.apache.org/ .
 
 =item * set
 
+=item * if
+
+=item * elif
+
+=item * else
+
+=item * endif
+
 =item * perl
 
 There are two ways to call a Perl function, and two ways to supply it with
@@ -388,7 +489,7 @@ SSI calls.
 
 =item * config
 
-Not supported yet.
+Not supported yet.  If anyone thinks it's important, drop me a line.
 
 =back
 
@@ -431,18 +532,11 @@ for more specific information.
 
 =head1 CAVEATS
 
-The date output formats are different from mod_include's format.  Anyone know
-a nice way to get the same format without resorting to HTTP::Date?  [update:
-Byron Brummer suggests that I check out the POSIX::strftime() function,
-included in the standard distribution.]
-
 Currently, the way <!--#echo var=whatever--> looks for variables is
 to first try $r->subprocess_env, then try %ENV, then the five extra environment
 variables mod_include supplies.  Is this the correct order?
 
 =head1 TO DO
-
-#if .. #else should be possible now, I'll take a stab it implementing it.
 
 Revisit http://www.apache.org/docs/mod/mod_include.html and see what else
 there I can implement.
@@ -452,11 +546,6 @@ would let you choose between executing a full-blown subrequest when
 including a file, or just opening it and printing it.
 
 I'd like to know how to use Apache::test for the real.t test.
-
-=head1 BUGS
-
-The only xssi directives currently supported are 'set' and 'echo'.
-
 
 =head1 SEE ALSO
 

@@ -10,6 +10,8 @@ t/docs/bare.ssi
 t/docs/file.ssi
 t/docs/incl
 t/docs/kid.ssik
-t/docs.check/2
+t/docs/virtual.ssi
 t/docs.check/3
 t/docs.check/4
+t/docs.check/5
+t/docs.check/6

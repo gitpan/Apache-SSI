@@ -4,7 +4,8 @@
 # it, and make several requests on that server.
 
 # Change this to the path to a mod_perl-enabled Apache web server.
-my $HTTPD = "/path/to/httpd";
+my $HTTPD = "/home/ken/http/httpd";
+#my $HTTPD = "/path/to/httpd";
 
 my $PORT = 8228;     # The port the server will run on
 my $USER = 'http';   # The user the server will run as
@@ -39,9 +40,10 @@ use LWP::UserAgent;
 use Carp;
 
 my %requests = (
-	2  => 'bare.ssi',
-	3  => 'file.ssi',
-	4  => 'kid.ssik',
+	3  => 'bare.ssi',
+	4  => 'file.ssi',
+	5  => 'kid.ssik',
+	6  => 'virtual.ssi',
 );
 
 

@@ -1,5 +1,30 @@
 Revision history for Perl extension Apache::SSI.
 
+1.95  Sun Oct 11 16:04:19 EDT 1998
+
+   - Doesn't rely on HTML::SimpleParse anymore to parse the HTML, but instead just
+     looks for <!--#.*?-->.  This allows nesting: <img src="<!--#whatever-->">,
+     and it should be much faster.  HTML::SimpleParse is still used to parse 
+     the key-value pairs of attributes for SSI directives. 
+     [Randal Schwartz, Rob Hartill]
+     
+   - <!--#flastmod virtual="whatever"--> now works. [Rob Hartill]
+     
+   - <!--#perl --> sections now pass $r as the first argument, and there
+     are two ways to turn off this behavior (PerlSetVar and named parameter).
+     [Ibid]
+     
+   - You can mix & match the "arg" and "args" parameters to <!--#perl--> 
+     sections, like so:
+      <!--#perl sub=something arg="Hi, Ken" args=5,12,13 arg="Bye, Ken"-->
+      &main::something($r, "Hi, Ken", "5", "12", "13", "Bye, Ken");
+     
+   - Added prototypes to several methods, which might conceivably speed them
+     up if the compiler can optimize around it.
+     
+   - In ssi_set, removed workaround for mod_perl 1.12 bug.
+     
+
 1.94  Wed Oct  7 19:57:03 EDT 1998
    - Apache::SSI can now be subclassed much more easily under mod_perl,
      because it knows how to deal with PERL_METHOD_HANDLERS=1 scenarios.

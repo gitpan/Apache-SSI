@@ -31,13 +31,13 @@ sub report_result {
 &quick_test("<!--#echo var=TERM -->", $ENV{TERM});
 
 # 3
-&quick_test('<!--#perl sub="sub {$_[0]*2}" arg=5-->', 10);
+&quick_test('<!--#perl sub="sub {$_[0]*2}" arg=5 pass_request=no -->', 10);
 
 # 4
-&quick_test('<!--#perl sub="sub {$_[0]*2+$_[1]}" arg=5 arg=7-->', 17);
+&quick_test('<!--#perl sub="sub {$_[0]*2+$_[1]}" arg=5 arg=7 pass_request=no-->', 17);
 
 # 5
-&quick_test('<!--#perl sub="sub {$_[0]*2+$_[1]}" args=5,7-->', 17);
+&quick_test('<!--#perl sub="sub {$_[0]*2+$_[1]}" args=5,7 pass_request=no-->', 17);
 
 
 sub quick_test {

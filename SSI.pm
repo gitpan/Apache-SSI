@@ -6,8 +6,9 @@ use HTML::SimpleParse;
 use Apache::Constants qw(:common OPT_EXECCGI);
 use File::Basename;
 
-$VERSION = '1.91';
+$VERSION = '1.92';
 @ISA = qw(HTML::SimpleParse);
+my $debug = 0;
 
 sub handler {
 	my($r) = @_;
@@ -52,6 +53,7 @@ sub output_ssi {
 		my $method = lc "ssi_$1";
 		$text =~ s/--$//;
 		no strict('refs');
+		warn "returning \$self->$method(...)" if $debug;;
 		return $self->$method( { $self->parse_args($text)} );
 	}
 	return;
@@ -65,6 +67,7 @@ sub ssi_include {
 					$r->lookup_file($args->{file}) : 
 					$r->lookup_uri($args->{virtual}) );
 	$subr->run == OK or $r->log_error("include failed");
+	return;
 }
 
 sub ssi_fsize { 

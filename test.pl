@@ -18,12 +18,12 @@ print "ok 1\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
+$TEST_NUM = 2;
 sub report_result {
-	$TEST_NUM ||= 2;
-	print "not " unless $_[0];
-	print "ok $TEST_NUM\n";
+	my $bad = !shift;
+	print "not "x$bad, "ok $TEST_NUM\n";
 	
-	print $_[1] if (not $_[0] and $ENV{TEST_VERBOSE});
+	print $_[0] if ($bad and $ENV{TEST_VERBOSE});
 	$TEST_NUM++;
 }
 

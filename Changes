@@ -12,6 +12,12 @@ Revision history for Perl extension Apache::SSI.
 	  which requires that each output_* function return its output rather than
 	  print it.
 
+1.92  Sat Sep 19 01:55:50 EDT 1998
+   - Added a "return;" statement to the ssi_include routine.  Avoids printing
+     an extraneous "1" in the served page.  Don't know how I missed this
+     before.  Thanks to Gil Vidals.
+
+
 mod_include has this:
      if (!(allow_options(r) & OPT_INCLUDES)) {
         return DECLINED;

@@ -6,7 +6,7 @@ WriteMakefile(
     'VERSION_FROM' => 'SSI.pm', # finds $VERSION
     'dist' => { COMPRESS=>"gzip", SUFFIX=>"gz" },
     'PREREQ_PM' => {
-       'HTML::SimpleParse' => '0.01',
+       'HTML::SimpleParse' => '0.03',
        'Apache::Constants' => '1.00',
     }
 

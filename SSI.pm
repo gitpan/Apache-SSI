@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.01';
+$VERSION = '2.02';
 my $debug = 0;
 
 sub handler($$) {
@@ -113,31 +113,33 @@ sub output_ssi($$) {
 
 sub ssi_include($$) {
 	my ($self, $args) = @_;
-	my $r = $self->{_r};
-
-	my $subr = (length $args->{file} ? 
-					$r->lookup_file($args->{file}) : 
-					$r->lookup_uri($args->{virtual}) );
-	$subr->run == OK or $r->log_error("include failed");
+	$self->find_file($args)->run == OK or $self->{_r}->log_error("include failed: $!");
 	return;
 }
 
 sub ssi_fsize($$) { 
 	my ($self, $args) = @_;
-	return -s $self->find_file(@{$args}{'file', 'virtual'});  # $ for BBEdit
+	return -s $self->find_file($args)->filename();  # $ for BBEdit
 }
 
 sub ssi_flastmod($$) {
 	my($self, $args) = @_;
-	my $req;
-	if (exists $args->{file}) {
-		$req = $self->{_r}->lookup_file( $args->{file} );
-	} elsif (exists $args->{virtual}) {
-		$req = $self->{_r}->lookup_uri($args->{virtual});
+	return &_lastmod( $self->find_file($args)->filename() );
+}
+
+sub find_file {
+    my ($self, $args) = @_;
+    my $req;
+    if (exists $args->{'file'}) {
+        $self->_interp_vars($args->{'file'});
+		$req = $self->{_r}->lookup_file($args->{'file'});
+	} elsif (exists $args->{'virtual'}) {
+	    $self->_interp_vars($args->{'virtual'});
+		$req = $self->{_r}->lookup_uri($args->{'virtual'});
 	} else {
 		$req = $self->{_r};
 	}
-	return &_lastmod( $req->filename() );
+	return $req;
 }
 
 sub ssi_printenv() {
@@ -174,7 +176,7 @@ sub ssi_perl($$$) {
 				$pass_r = 0 if lc $a[1] eq 'no';
 			} elsif ($a[0] =~ s/^-//) {
 				push @arg2, @a;
-			} else { Any unknown get passed as key-value pairs
+			} else { # Any unknown get passed as key-value pairs
 				push @arg2, @a;
 			}
 		}
@@ -190,34 +192,33 @@ sub ssi_perl($$$) {
 		}
 		return '[A Perl error occurred while parsing this directive]' unless ref $subref;
 	} else {             # for <!--#perl sub="package::subr" -->
-		$subref = "main::$_" unless $sub =~ /::/;
+	   	no strict('refs');
+		$subref = &{$sub =~ /::/ ? $sub : "main::$_"};
 	}
 	
 	$pass_r = 0 if $self->{_r} and lc $self->{_r}->dir_config('SSIPerlPass_Request') eq 'no';
 	unshift @arg1, $self->{_r} if $pass_r;
 	warn "sub is $subref, args are @arg1 & @arg2" if $debug;
-	no strict('refs');
 	return scalar &{ $subref }(@arg1, @arg2);
 }
 
 sub ssi_set($$) {
 	my ($self, $args) = @_;
 	
-	# Work around a bug in mod_perl 1.12 that happens when calling
-	# subprocess_env in a void context
-	#my $trash = $self->{_r}->subprocess_env( $args->{var}, $args->{value} );
+	$self->_interp_vars($args->{value});
 	$self->{_r}->subprocess_env( $args->{var}, $args->{value} );
 	return;
 }
 
 sub ssi_config() {
-	warn "*** 'config' directive not implemented by Apache::SSI";
+	warn "*** 'config' directive not implemented by ", __PACKAGE__;
 	return "<$_[1]>";
 }
 
 sub ssi_echo($$) {
 	my($self, $args) = @_;
 	my $var = $args->{var};
+	$self->_interp_vars($var);
 	my $value;
 	no strict('refs');
 	
@@ -249,6 +250,15 @@ sub echo_LAST_MODIFIED($) {
 sub _set_VAR($$$) {
     $_[0]->subprocess_env($_[1], $_[2]);
     return $_[2];
+}
+
+sub _interp_vars {
+    # Do variable interpolation (incomplete and buggy)
+    my $self = shift;
+    my ($a,$b,$c);
+    $_[0] =~ s{ (^|[^\\]) (\\\\)* \$(\{)?(\w+)(\})? } 
+              { ($a,$b,$c) = ($1,$2,$4);
+                $a . substr($b,length($b)/2) . $self->ssi_echo({var=>$c}) }exg;
 }
 
 sub _2main { $_[0]->is_main() ? $_[0] : $_[0]->main() }

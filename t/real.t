@@ -46,6 +46,7 @@ my %requests = (
 	6  => 'virtual.ssi',
 	7  => 'incl_rel.ssi',
 	8  => 'incl_rel2.ssi',
+	9  => 'set_var.ssi',
 );
 
 

@@ -1,5 +1,11 @@
 Revision history for Perl extension Apache::SSI.
 
+2.02  Fri Nov 27 04:25:00 EST 1998
+   - Added minimal and probably buggy support for variable interpolation in
+	  SSI directives.
+
+   - <!--#fsize ...--> should work now.
+
 2.01 Wed Nov 11 18:31:12 EST 1998
    - Backed out the $r->finfo change from 1.99 because of some reported
      problems with it.

@@ -11,6 +11,7 @@ t/docs.check/5
 t/docs.check/6
 t/docs.check/7
 t/docs.check/8
+t/docs.check/9
 t/docs/bare.ssi
 t/docs/file.ssi
 t/docs/incl
@@ -19,6 +20,7 @@ t/docs/incl2
 t/docs/incl_rel.ssi
 t/docs/incl_rel2.ssi
 t/docs/kid.ssik
+t/docs/set_var.ssi
 t/docs/virtual.ssi
 t/fake.t
 t/real.t

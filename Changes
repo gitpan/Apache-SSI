@@ -1,16 +1,31 @@
 Revision history for Perl extension Apache::SSI.
 
-2.09
+2.11  Sun Feb 20 12:03:38 EST 2000
+   - Fixed a bug in which $/ was being set to undef in Perl code called by
+     <!--#perl--> directives (wald@library.ho.lucent.com (Robert Waldstein)).
+
+   - To keep compatibility with mod_include, allow <!--#perl sub=Pack--> as
+     an abbreviation for <!--#perl sub=Pack::handler-->
+     (wald@library.ho.lucent.com (Robert Waldstein)).
+
+   - Made a note in the documentation that calling subroutines by name is
+     usually quite a bit faster than using anonymous subrefs.
+
+2.10  Sun Dec 12 14:32:02 EST 1999
+   - The handler() routine will now respect HEAD requests and not send
+     the entire document in such cases.  Thanks to Kevin Murphy.
+
+2.09  Nov 28 21:55
    - Added support for the 'timefmt' config directive for formatting
      time-related output (thanks to Vassilii Khachaturov for the idea
      & implementation).
 
-2.08
+2.08  Aug 28 01:29
    - Forgot to include a couple of files in the distribution - they
      were files used during the 'make test' phase of installation.  No
      effect on functionality here. (Thanks to Tony Cox for the spot)
 
-2.07
+2.07  Aug 10 17:39
    - Now requires HTML::SimpleParse 0.06, which fixes a bug in
      backslash-escaping of HTML key-value pairs.
 

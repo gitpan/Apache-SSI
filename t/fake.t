@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..8\n"; }
+BEGIN { $| = 1; print "1..11\n"; }
 END {print "not ok 1\n" unless $loaded;}
 #use lib '/home/ken/modules/Apache-SSI/blib/lib';
 use Apache::SSI;
@@ -48,10 +48,24 @@ sub report_result {
 # 8
 &quick_test( qq[<!--#if expr="!(0)" -->6<!--#else-->3<!--#endif-->], '6' );
 
+# 9
+&quick_test('<!--#perl sub="five"-->', 5);
+
+# 10
+&quick_test('<!--#perl sub="Test::five"-->', 5);
+
+# 11
+&quick_test('<!--#perl sub="Test"-->', 5);
+
 sub quick_test {
-	my $ssi = shift;
-	my $expected = shift;
-	my $p = new Apache::SSI($ssi);
-	&report_result(($p->get_output() eq $expected),
-						$p->get_output() . " eq '$expected'");
+  my $ssi = shift;
+  my $expected = shift;
+  my $p = new Apache::SSI($ssi);
+  &report_result(($p->get_output() eq $expected),
+		 $p->get_output() . " eq '$expected'");
 }
+
+sub five {5}
+sub Test::five {5}
+sub Test::handler {5}
+

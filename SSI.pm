@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.09';
+$VERSION = '2.11';
 my $debug = 0;
 
 sub handler($$) {
@@ -43,9 +43,9 @@ sub handler($$) {
         }
         $r->send_http_header;
     }
+    return if $r->header_only;
     
-    local $/ = undef;
-    $pack->new( scalar(<$fh>), $r )->output;
+    do {local $/=undef; $pack->new( scalar(<$fh>), $r )}->output;
     return OK;
 }
 
@@ -58,7 +58,7 @@ sub new {
      '_r'   => $r,
      'suspend' => 0,
      'seen_true' => undef, # 1 when we've seen a true "if" in this if-chain,
-     # 0 when we haven't, undef when we're not in an if-chain
+                           # 0 when we haven't, undef when we're not in an if-chain
      'errmsg'  => "[an error occurred while processing this directive]",
      'sizefmt' => 'abbrev',
      'timefmt' => undef, # undef means the current locale's default
@@ -295,7 +295,9 @@ sub ssi_perl {
         return $self->error("sub=\"sub ...\" didn't return a reference") unless ref $subref;
     } else {             # for <!--#perl sub="package::subr" -->
         no strict('refs');
-        $subref = \&{$sub =~ /::/ ? $sub : "main::$_"};
+	$subref = (defined &{$sub} ? \&{$sub} :
+		   defined &{"${sub}::handler"} ? \&{"${sub}::handler"} : 
+		   \&{"main::$sub"});
     }
     
     $pass_r = 0 if $self->{_r} and lc $self->{_r}->dir_config('SSIPerlPass_Request') eq 'no';
@@ -479,13 +481,12 @@ server-parsed html documents.  It runs under Apache's mod_perl.
 In my mind, there are two main reasons you might want to use this module:
 you can sub-class it to implement your own custom SSI directives, and/or you
 can parse the output of other mod_perl handlers, or send the SSI output
-through another handler (use Apache::Filter or Apache::OutputChain to 
-do these).
+through another handler (use Apache::Filter to do this).
 
 Each SSI directive is handled by an Apache::SSI method with the prefix
 "ssi_".  For example, <!--#printenv--> is handled by the ssi_printenv method.
 attribute=value pairs inside the SSI tags are parsed and passed to the
-method in an anonymous hash.
+method in a hash reference.
 
 =head2 SSI Directives
 
@@ -520,11 +521,23 @@ reference, or as the name of a function defined elsewhere:
  <!--#perl sub="sub { localtime() }"-->
  <!--#perl sub="time::now"-->
 
-If the 'sub' argument matches the regular expression /^\s*sub[^\w:]/, it is
-assumed to be a subroutine reference.  Otherwise it's assumed to be the name
-of a function.  In the latter case, the string "::" will be prepended to the
-function name if the name doesn't contain "::" (this forces the function to
-be in the main package, or a package you specify).
+If the 'sub' argument matches the regular expression /^\s*sub[^\w:]/,
+it is assumed to be a subroutine reference.  Otherwise it's assumed to
+be the name of a function.  In the latter case, the string "main::"
+will be prepended to the function name if the name doesn't contain
+"::" (this forces the function to be in the main package, or a package
+you specify).  Note that it's a pretty bad idea to put your code in
+the main package, so I only halfheartedly endorse this feature.
+
+In general, it will be slower to use anonymous subroutines, because
+each one has to be eval()'ed and there is no caching.  For best
+results, pre-load any code you need in the parent process, then call
+it by name.
+
+If you're calling a subroutine like "&Package::SubPack::handler", you
+can omit the "handler" portion, making your directive like this:
+
+ <!--#perl sub="Package::Subpack"-->
 
 If you want to supply a list of arguments to the function, you use either
 the "arg" or the "args" parameter:

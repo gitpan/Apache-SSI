@@ -5,8 +5,9 @@ use vars qw($VERSION);
 use Apache::Constants qw(:common OPT_EXECCGI);
 use File::Basename;
 use HTML::SimpleParse;
+use Symbol;
 
-$VERSION = '1.97';
+$VERSION = '1.98';
 my $debug = 0;
 
 sub handler($$) {
@@ -21,21 +22,31 @@ sub handler($$) {
 	
 	%ENV = $r->cgi_env; #for exec
 	$r->content_type("text/html");
-	my $file = $r->filename;
+	
+	my $fh;
+	if ($r->can('filter_input')) {
+		$fh = $r->filter_input();
+		warn "Using filter_input fh: $fh" if $debug;
+	} else {
+		my $file = $r->filename;
+		warn "File is $file" if $debug;
 
-	unless (-e $file) {
-		$r->log_error("$file not found");
-		return NOT_FOUND;
-	}
+		unless (-e $file) {
+			$r->log_error("$file not found");
+			return NOT_FOUND;
+		}
 
-	local *IN;
-	unless (open IN, $file) {
-		$r->log_error("$file: $!");
-		return FORBIDDEN;
+		$fh = gensym;
+		unless (open *{$fh}, $file) {
+			$r->log_error("$file: $!");
+			return FORBIDDEN;
+		}
+		$r->send_http_header;
+
+		warn "Set fh to $fh" if $debug;
 	}
 	
-	$r->send_http_header;
-	$pack->new( join('', <IN>), $r )->output;
+	$pack->new( join('', <$fh>), $r )->output;
 	return OK;
 }
 
@@ -93,8 +104,9 @@ sub output_ssi($$) {
 	if ($text =~ s/^!--#(\w+)\s*//) {
 		my $method = lc "ssi_$1";
 		$text =~ s/--$//;
-		warn "returning \$self->$method(...)" if $debug;
+		warn "returning \$self->$method($text)" if $debug;
 		my $args = [ HTML::SimpleParse->parse_args($text) ];
+		warn ("args are " . join (',', @{$args})) if $debug;
 		return $self->$method( {@$args}, $args );
 	}
 	return;
@@ -152,6 +164,7 @@ sub ssi_perl($$$) {
 	{
 		my @a;
 		while (@a = splice(@$margs, 0, 2)) {
+			$a[1] =~ s/\\(.)/$1/gs;
 			if ($a[0] eq 'sub') {
 				$sub = $a[1];
 			} elsif ($a[0] eq 'arg') {
@@ -160,23 +173,32 @@ sub ssi_perl($$$) {
 				push @arg1, split(/,/, $a[1]);
 			} elsif (lc $a[0] eq 'pass_request') {
 				$pass_r = 0 if lc $a[1] eq 'no';
-			} else {
+			} elsif ($a[0] =~ s/^-//) {
+				push @arg2, @a;
+			} else { Any unknown get passed as key-value pairs
 				push @arg2, @a;
 			}
 		}
 	}
 
+	warn "sub is $sub, args are @arg1 & @arg2" if $debug;
+	my $subref;
 	if ( $sub =~ /^\s*sub[^\w:]/ ) {     # for <!--#perl sub="sub {print ++$Access::Cnt }" -->
-		$sub = eval($sub);
+		$subref = eval($sub);
+		if ($@) {
+			$self->{_r}->log_error("Perl eval of '$sub' failed: $@") if $self->{_r};
+			warn("Perl eval of '$sub' failed: $@") unless $self->{_r};
+		}
+		return '[A Perl error occurred while parsing this directive]' unless ref $subref;
 	} else {             # for <!--#perl sub="package::subr" -->
-		$sub = "main::$_" unless $sub =~ /::/;
+		$subref = "main::$_" unless $sub =~ /::/;
 	}
 	
 	$pass_r = 0 if $self->{_r} and lc $self->{_r}->dir_config('SSIPerlPass_Request') eq 'no';
 	unshift @arg1, $self->{_r} if $pass_r;
-	warn "sub is $sub, args are @arg1 & @arg2" if $debug;
+	warn "sub is $subref, args are @arg1 & @arg2" if $debug;
 	no strict('refs');
-	return scalar &{ $sub }(@arg1, @arg2);
+	return scalar &{ $subref }(@arg1, @arg2);
 }
 
 sub ssi_set($$) {

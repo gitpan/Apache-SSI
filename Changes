@@ -1,5 +1,22 @@
 Revision history for Perl extension Apache::SSI.
 
+1.98  Sat Nov  7 02:19:05 EST 1998
+   - Will now cooperate with Apache::Filter if you've got it.
+
+   - Strips backslashes used in perl subs like these:
+     <!--#perl sub="sub {for (0..10) {print \"very \"}}"-->
+     [thanks, Stephane Bortzmeyer]
+
+   - More verbose error logging when you turn on the debug flags
+     [ibid]
+
+   - When reading the input file (and not using Apache::Filter), we use
+     a lexical variable for the filehandle, instead of the local(*IN)
+     we were using before.
+
+   - Compensates for changes in the rotation of the Earth after Jesse Ventura
+     is elected governor of my state.
+
 1.97  Thu Oct 22 02:43:34 EDT 1998
    - Fixed DOCUMENT_NAME, DOCUMENT_URI, and LAST_MODIFIED so they return information
      about the document the user requested, not the document we're currently

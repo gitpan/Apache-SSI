@@ -106,16 +106,14 @@ sub test_outcome {
 	
 	my $ok = ($text eq `cat t/docs.check/$i`);
 	&report($ok);
-	print $text if ($ENV{TEST_VERBOSE} and not $ok);
+	print "Result: $text" if ($ENV{TEST_VERBOSE} and not $ok);
 }
 
 sub report {
 	my $ok = shift;
-	$TEST_NUM ||= 1;
-	print "not " unless $ok;
-	print "ok $TEST_NUM\n";
-	$BAD++ unless $ok;
 	$TEST_NUM++;
+	print "not "x(!$ok), "ok $TEST_NUM\n";
+	$BAD++ unless $ok;
 }
 
 sub do_system {

@@ -9,6 +9,8 @@ t/docs.check/10
 t/docs.check/11
 t/docs.check/12
 t/docs.check/13
+t/docs.check/14
+t/docs.check/15
 t/docs.check/3
 t/docs.check/4
 t/docs.check/5
@@ -18,6 +20,8 @@ t/docs.check/8
 t/docs.check/9
 t/docs/5.cgi
 t/docs/bare.ssi
+t/docs/escape.ssi
+t/docs/exec_cmd.ssi
 t/docs/file.ssi
 t/docs/if.ssi
 t/docs/if2.ssi

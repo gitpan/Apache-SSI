@@ -1,11 +1,19 @@
 Revision history for Perl extension Apache::SSI.
 
+2.08
+   - Forgot to include a couple of files in the distribution - they
+     were files used during the 'make test' phase of installation.  No
+     effect on functionality here. (Thanks to Tony Cox for the spot)
+
 2.07
    - Now requires HTML::SimpleParse 0.06, which fixes a bug in
      backslash-escaping of HTML key-value pairs.
 
-	- Markus Schuh showed me how to fix the warning (line "85") that I
+   - Markus Schuh showed me how to fix the warning (line "85") that I
      introduced in 2.06.  Thanks!
+
+   - For <!--#exec --> stuff, we now check OPT_INCNOEXEC instead of
+     OPT_EXECCGI.
 
 2.06_1  Wed Feb  3 11:31:52 EST 1999
    - Forgot to include some 'make test' files in the MANIFEST, so they

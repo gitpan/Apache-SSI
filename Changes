@@ -17,6 +17,9 @@ Revision history for Perl extension Apache::SSI.
      an extraneous "1" in the served page.  Don't know how I missed this
      before.  Thanks to Gil Vidals.
 
+1.93  Wed Sep 23 15:53:21 EDT 1998
+   - You can now pass multiple arguments to a <!--#perl--> routine.
+
 
 mod_include has this:
      if (!(allow_options(r) & OPT_INCLUDES)) {

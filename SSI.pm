@@ -6,7 +6,7 @@ use HTML::SimpleParse;
 use Apache::Constants qw(:common OPT_EXECCGI);
 use File::Basename;
 
-$VERSION = '1.92';
+$VERSION = '1.93';
 @ISA = qw(HTML::SimpleParse);
 my $debug = 0;
 
@@ -53,8 +53,9 @@ sub output_ssi {
 		my $method = lc "ssi_$1";
 		$text =~ s/--$//;
 		no strict('refs');
-		warn "returning \$self->$method(...)" if $debug;;
-		return $self->$method( { $self->parse_args($text)} );
+		warn "returning \$self->$method(...)" if $debug;
+		my $args = [ $self->parse_args($text) ];
+		return $self->$method( {@$args}, $args );
 	}
 	return;
 }
@@ -97,9 +98,13 @@ sub ssi_exec {
 }
 
 sub ssi_perl {
-	my($self, $args) = @_;
+	my($self, $args, $margs) = @_;
 	local $_ = $args->{sub};
-	my $arg = $args->{arg};
+	my @args = eval {
+		return (split/,/, $args->{args}) if exists ($args->{args});
+		return $self->multi_args('arg', $margs) if exists ($args->{arg});
+		return;
+	};
 
 	my $sub;
 	if ( /^\s*sub[^\w:]/ ) {     # for <!--#perl sub="sub {print ++$Access::Cnt }" -->
@@ -107,8 +112,20 @@ sub ssi_perl {
 	} else {             # for <!--#perl sub="package::subr" -->
 		$sub = (/::/ ? $_ : "main::$_");
 	}
+	warn "sub is $sub, args are @args" if $debug;
 	no strict('refs');
-	return scalar &{ $sub }($arg);
+	return scalar &{ $sub }(@args);
+}
+
+sub multi_args {
+	shift;  # Get rid of $self
+	my $arg = shift; # What arg to look for
+	my @list = @{shift()};
+	my (@returns, @pair);
+	while (@pair = splice(@list, 0, 2)) {
+		push(@returns, $pair[1]) if $pair[0] eq $arg;
+	}
+	return @returns;
 }
 
 sub ssi_set {
@@ -218,6 +235,30 @@ mod_include's online documentation at http://www.apache.org/ .
 
 =item * perl
 
+There are two ways to call a Perl function, and two ways to supply it with
+arguments.  The function can be specified either as an anonymous subroutine
+reference, or as the name of a function defined elsewhere:
+
+ <!--#perl sub="sub { localtime() }"-->
+ <!--#perl sub="time::now"-->
+
+If the 'sub' argument matches the regular expression /^\s*sub[^\w:]/, it is
+assumed to be a subroutine reference.  Otherwise it's assumed to be the name
+of a function.  In the latter case, the string "::" will be prepended to the
+function name if the name doesn't contain "::" (this forces the function to
+be in the main package, or a package you specify).
+
+If you want to supply a list of arguments to the function, you use either
+the "arg" or the "args" parameter:
+
+ <!--#perl sub="sub {$_[0] * 7}" arg=7-->
+ <!--#perl sub=holy::matrimony arg=Hi arg=Lois-->
+ <!--#perl sub=holy::matrimony args=Hi,Lois-->
+
+The "args" parameter will simply split on commas, meaning that currently
+there's no way to embed a comma in arguments passed via the "args"
+parameter.  Use the "arg" parameter for this.
+
 See C<http://perl.apache.org/src/mod_perl.html> for more details on this.
 
 =item * config
@@ -243,13 +284,20 @@ variables mod_include supplies.  Is this the correct order?
 
 =head1 TO DO
 
-I need to write a few tests that run under "make test".
+It would be nice to have a "PerlSetVar ASSI_Subrequests 0|1" option that
+would let you choose between executing a full-blown subrequest when
+including a file, or just opening it and printing it.
+
+It would also be nice to mix & match the "arg" and "args" parameters to
+<!--#perl--> sections, like so:
+
+ <!--#perl sub=something arg="Hi, Ken" args=5,12,13 arg="Bye, Ken"-->
+
 
 =head1 BUGS
 
 The only xssi directives currently supported are 'set' and 'echo'.
 
-<!--#perl--> directives can only take one argument.
 
 =head1 SEE ALSO
 

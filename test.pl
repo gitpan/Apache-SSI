@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..2\n"; }
+BEGIN { $| = 1; print "1..5\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Apache::SSI;
 $loaded = 1;
@@ -28,9 +28,22 @@ sub report_result {
 }
 
 # 2
-{
-	my $p = new Apache::SSI( "<!--#echo var=TERM -->" );
-	&report_result(($p->get_output() eq $ENV{TERM}),
-	               $p->get_output() . " eq $ENV{TERM}");
+&quick_test("<!--#echo var=TERM -->", $ENV{TERM});
 
+# 3
+&quick_test('<!--#perl sub="sub {$_[0]*2}" arg=5-->', 10);
+
+# 4
+&quick_test('<!--#perl sub="sub {$_[0]*2+$_[1]}" arg=5 arg=7-->', 17);
+
+# 5
+&quick_test('<!--#perl sub="sub {$_[0]*2+$_[1]}" args=5,7-->', 17);
+
+
+sub quick_test {
+	my $ssi = shift;
+	my $expected = shift;
+	my $p = new Apache::SSI($ssi);
+	&report_result(($p->get_output() eq $expected),
+						$p->get_output() . " eq '$expected'");
 }

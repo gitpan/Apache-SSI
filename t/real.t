@@ -48,6 +48,7 @@ my %requests = (
 	8  => 'incl_rel2.ssi',
 	9  => 'set_var.ssi',
 	10 => 'xssi.ssi',
+	11 => 'include_cgi.ssi/path?query',
 );
 
 
@@ -59,6 +60,7 @@ my $result = &start_httpd;
 
 if ($result) {
 	local $SIG{'__DIE__'} = \&kill_httpd;
+	local $SIG{'INT'} = \&kill_httpd;
 	
 	foreach my $testnum (sort {$a<=>$b} keys %requests) {
 		my $ua = new LWP::UserAgent;

@@ -1,5 +1,23 @@
 Revision history for Perl extension Apache::SSI.
 
+2.04  Sat Jan 30 00:27:54 EST 1999
+   - Removed the %ENV = $r->cgi_env line, since it's not necessary.
+     See http://forum.swarthmore.edu/epigone/modperl/jangblorkand .
+
+   - Added "local $/ = undef;" line to reading input filehandle, which
+     should speed up running under Apache::Filter. [Thanks, Joshua Chamos]
+
+   - Added support for <!--#exec cgi="..."-->.  Please let me know
+     if there are any problems, there are a lot of things to get right
+     (or go wrong).  Thanks to Yury Kuznesov for the urging.
+
+   - Added support for <!--#config ...-->, except the 'timefmt' directive.
+     
+   - With the small exception in 'config' above, I think that now all the 
+     functionality of mod_include is present in Apache::SSI.  Once people have 
+     used it for a while and we've ironed out bugs, I'll declare some version 
+     "officially stable and complete" or something.
+
 2.03  Mon Jan  4 04:43:01 EST 1999
    - Added support for the #if, #elif, #else, and #endif directives
 
@@ -8,7 +26,7 @@ Revision history for Perl extension Apache::SSI.
 
 2.02  Fri Nov 27 04:25:00 EST 1998
    - Added minimal and probably buggy support for variable interpolation in
-	  SSI directives.
+     SSI directives.
 
    - <!--#fsize ...--> should work now.
 
@@ -107,15 +125,15 @@ Revision history for Perl extension Apache::SSI.
 
 1.91  Sun Jun 28 17:49:29 EDT 1998
    - In README and Makefile.PL, I've noted that mod_perl must be installed
-	  before this module will work.
-	
-	- I've updated everything so that it can use HTML::SimpleParse version 0.03,
-	  which requires that each output_* function return its output rather than
-	  print it.
+     before this module will work.
+   
+   - I've updated everything so that it can use HTML::SimpleParse version 0.03,
+     which requires that each output_* function return its output rather than
+     print it.
 
 1.90  Fri Jun 26 18:07:57 1998
-	- original version; created by h2xs 1.18.  Actually a re-write of Doug
-	  MacEachern's original version.
+   - original version; created by h2xs 1.18.  Actually a re-write of Doug
+     MacEachern's original version.
 
 mod_include has this:
      if (!(allow_options(r) & OPT_INCLUDES)) {

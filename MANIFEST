@@ -6,6 +6,7 @@ SSI.pm
 t/Kid.pm
 t/benchmark.pl
 t/docs.check/10
+t/docs.check/11
 t/docs.check/3
 t/docs.check/4
 t/docs.check/5
@@ -13,6 +14,7 @@ t/docs.check/6
 t/docs.check/7
 t/docs.check/8
 t/docs.check/9
+t/docs/5.cgi
 t/docs/bare.ssi
 t/docs/file.ssi
 t/docs/incl
@@ -20,6 +22,7 @@ t/docs/incl.ssi
 t/docs/incl2
 t/docs/incl_rel.ssi
 t/docs/incl_rel2.ssi
+t/docs/include_cgi.ssi
 t/docs/kid.ssik
 t/docs/set_var.ssi
 t/docs/virtual.ssi

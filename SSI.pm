@@ -7,112 +7,114 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.03';
+$VERSION = '2.04';
 my $debug = 0;
 
 sub handler($$) {
-	my($pack,$r_orig) = @_;  # Handles subclassing via PerlMethodHandler
-	my $r;
-	if ($r_orig) {
-		$r = $r_orig;
-	} else {
-		$r = $pack;
-		$pack = __PACKAGE__;
-	}
-	
-	%ENV = $r->cgi_env; #for exec
-	$r->content_type("text/html");
-	
-	my $fh;
-	if ($r->can('filter_input')) {
-		my ($status);
-		($fh, $status) = $r->filter_input();
-		return $status unless $status == OK;
-		
-	} else {
-		my $file = $r->filename;
+    my($pack,$r_orig) = @_;  # Handles subclassing via PerlMethodHandler
+    my $r;
+    if ($r_orig) {
+        $r = $r_orig;
+    } else {
+        $r = $pack;
+        $pack = __PACKAGE__;
+    }
+    
+    $r->content_type("text/html");
+    
+    my $fh;
+    if ($r->dir_config('Filter') eq 'On') {
+        my ($status);
+        ($fh, $status) = $r->filter_input();
+        return $status unless $status == OK;
+        
+    } else {
+        my $file = $r->filename;
 
-		unless (-e $file) {
-			$r->log_error("$file not found");
-			return NOT_FOUND;
-		}
+        unless (-e $file) {
+            $r->log_error("$file not found");
+            return NOT_FOUND;
+        }
 
-		$fh = gensym;
-		unless (open *{$fh}, $file) {
-			$r->log_error("$file: $!");
-			return FORBIDDEN;
-		}
-		$r->send_http_header;
-	}
-	
-	$pack->new( join('', <$fh>), $r )->output;
-	return OK;
+        $fh = gensym;
+        unless (open *{$fh}, $file) {
+            $r->log_error("$file: $!");
+            return FORBIDDEN;
+        }
+        $r->send_http_header;
+    }
+    
+    local $/ = undef;
+    $pack->new( scalar(<$fh>), $r )->output;
+    return OK;
 }
 
 sub new {
-	my ($pack, $text, $r) = @_;
-	return bless {
-		'text' => $text,
-		'_r'   => $r,
+    my ($pack, $text, $r) = @_;
+    return bless {
+        'text' => $text,
+        '_r'   => $r,
         'suspend' => 0,
         'seen_true' => undef, # 1 when we've seen a true "if" in this if-chain,
                               # 0 when we haven't, undef when we're not in an if-chain
-	}, $pack;
+        'errmsg'  => "[an error occurred while processing this directive]",
+        'sizefmt' => 'abbrev',
+    }, $pack;
 }
 
 sub text {
-	my $self = shift;
-	if (@_) {
-		$self->{'text'} = shift;
-	}
-	return $self->{'text'};
+    my $self = shift;
+    if (@_) {
+        $self->{'text'} = shift;
+    }
+    return $self->{'text'};
 }
 
 sub get_output($) {
-	my $self = shift;
-	
-	my $out = '';
-	my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
-	while (@parts) {
-		$out .= ('', shift @parts)[1-$self->{'suspend'}];
-		last unless @parts;
-		my $ssi = shift @parts;
-		if ($ssi =~ m/^<!--#(.*)-->$/) {
-			$out .= $self->output_ssi($1);
-		} else { die 'Parse error' }
-	}
-	return $out;
+    my $self = shift;
+    
+    my $out = '';
+    my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
+    while (@parts) {
+        $out .= ('', shift @parts)[1-$self->{'suspend'}];
+        last unless @parts;
+        my $ssi = shift @parts;
+        if ($ssi =~ m/^<!--#(.*)-->$/) {
+            $out .= $self->output_ssi($1);
+        } else { die 'Parse error' }
+    }
+    return $out;
 }
 
 
 sub output($) {
-	my $self = shift;
-	
-	my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
-	while (@parts) {
-		print( ('', shift @parts)[1-$self->{'suspend'}] );
-		last unless @parts;
-		my $ssi = shift @parts;
-		if ($ssi =~ m/^<!--#(.*)-->$/) {
-			print $self->output_ssi($1);
-		} else { die 'Parse error' }
-	}
+    my $self = shift;
+    
+    my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
+    while (@parts) {
+        print( ('', shift @parts)[1-$self->{'suspend'}] );
+        last unless @parts;
+        my $ssi = shift @parts;
+        if ($ssi =~ m/^<!--#(.*)-->$/) {
+            print $self->output_ssi($1);
+        } else { die 'Parse error' }
+    }
 }
 
 sub output_ssi($$) {
-	my ($self, $text) = @_;
-	
-	if ($text =~ s/^(\w+)\s*//) {
-	    my $tag = $1;
-    	return if ($self->{'suspend'} and not $tag =~ /^(if|elif|else|endif)/);
-		my $method = lc "ssi_$tag";
+    my ($self, $text) = @_;
+    
+    if ($text =~ s/^(\w+)\s*//) {
+        my $tag = $1;
+        return if ($self->{'suspend'} and not $tag =~ /^(if|elif|else|endif)/);
+        my $method = lc "ssi_$tag";
 
-		warn "returning \$self->$method($text)" if $debug;
-		my $args = [ HTML::SimpleParse->parse_args($text) ];
-		warn ("args are " . join (',', @{$args})) if $debug;
-		return $self->$method( {@$args}, $args );
-	}
-	return;
+        warn "returning \$self->$method($text)" if $debug;
+        my $args = [ HTML::SimpleParse->parse_args($text) ];
+        warn ("args are " . join (',', @{$args})) if $debug;
+        return $self->$method( {@$args}, $args );
+    }
+    return;
 }
 
 sub ssi_if {
@@ -173,22 +175,34 @@ sub _handle_ifs {
 
 
 sub ssi_include($$) {
-	my ($self, $args) = @_;
-	my $subr = $self->find_file($args);
-	unless ($subr->run == OK) {
-		$self->{_r}->log_error("include of '@{[$subr->filename()]}' failed: $!");
-	}
-	return;
+    my ($self, $args) = @_;
+    my $subr = $self->find_file($args);
+    unless ($subr->run == OK) {
+        $self->error("Include of '@{[$subr->filename()]}' failed: $!");
+    }
+    return;
 }
 
 sub ssi_fsize($$) { 
-	my ($self, $args) = @_;
-	return -s $self->find_file($args)->filename();  # $ for BBEdit
+    my ($self, $args) = @_;
+    my $size = -s $self->find_file($args)->filename();
+    if ($self->{'sizefmt'} eq 'bytes') {
+        return $size;
+    } elsif ($self->{'sizefmt'} eq 'abbrev') {
+        return "   0k" unless $size;
+        return "   1k" if $size < 1024;
+        return sprintf("%4dk", ($size + 512)/1024) if $size < 1048576;
+        return sprintf("%4.1fM", $size/1048576.0)  if $size < 103809024;
+        return sprintf("%4dM", ($size + 524288)/1048576);
+    } else {
+        $self->error("Unrecognized size format '$self->{'sizefmt'}'");
+        return;
+    }
 }
 
 sub ssi_flastmod($$) {
-	my($self, $args) = @_;
-	return &_lastmod( $self->find_file($args)->filename() );
+    my($self, $args) = @_;
+    return &_lastmod( $self->find_file($args)->filename() );
 }
 
 sub find_file {
@@ -196,104 +210,129 @@ sub find_file {
     my $req;
     if (exists $args->{'file'}) {
         $self->_interp_vars($args->{'file'});
-		$req = $self->{_r}->lookup_file($args->{'file'});
-	} elsif (exists $args->{'virtual'}) {
-	    $self->_interp_vars($args->{'virtual'});
-		$req = $self->{_r}->lookup_uri($args->{'virtual'});
-	} else {
-		$req = $self->{_r};
-	}
-	return $req;
+        $req = $self->{_r}->lookup_file($args->{'file'});
+    } elsif (exists $args->{'virtual'}) {
+        $self->_interp_vars($args->{'virtual'});
+        $req = $self->{_r}->lookup_uri($args->{'virtual'});
+    } else {
+        $req = $self->{_r};
+    }
+    return $req;
 }
 
 sub ssi_printenv() {
-	return join "", map( {"$_: $ENV{$_}<br>\n"} keys %ENV );
+    return join "", map( {"$_: $ENV{$_}<br>\n"} keys %ENV );
 }
 
 sub ssi_exec($$) {
-	my($self, $args) = @_;
-	#XXX did we check enough?
-	my $r = $self->{_r};
-	my $filename = $r->filename;
-	unless($r->allow_options & OPT_EXECCGI) {
-		$r->log_error("httpd: exec used but not allowed in $filename");
-		return "";
-	}
-	return scalar `$args->{cmd}`;
+    my($self, $args) = @_;
+    #XXX did we check enough?
+    my $r = $self->{_r};
+    my $filename = $r->filename;
+
+    unless($r->allow_options & OPT_EXECCGI) {
+        $self->error("httpd: exec used but not allowed in $filename");
+        return "";
+    }
+    return scalar `$args->{cmd}` if exists $args->{cmd};
+    
+    unless (exists $args->{cgi}) {
+        $self->error("No 'cmd' or 'cgi' argument given to #exec");
+        return;
+    }
+
+    # Okay, we're doing <!--#exec cgi=...>
+    my $rr = $r->lookup_uri($args->{cgi});
+    unless ($rr->status == 200) {
+        $self->error("Error including cgi: subrequest returned status '" . $rr->status . "', not 200");
+        return;
+    }
+    
+    # Pass through our own path_info and query_string (does this work?)
+    $rr->path_info( $r->path_info );
+    $rr->args( scalar $r->args );
+    $rr->content_type("application/x-httpd-cgi");
+    
+    my $status = $rr->run;
+    return;
 }
 
 sub ssi_perl($$$) {
-	my($self, $args, $margs) = @_;
+    my($self, $args, $margs) = @_;
 
-	my ($pass_r, @arg1, @arg2, $sub) = (1);
-	{
-		my @a;
-		while (@a = splice(@$margs, 0, 2)) {
-			$a[1] =~ s/\\(.)/$1/gs;
-			if ($a[0] eq 'sub') {
-				$sub = $a[1];
-			} elsif ($a[0] eq 'arg') {
-				push @arg1, $a[1];
-			} elsif ($a[0] eq 'args') {
-				push @arg1, split(/,/, $a[1]);
-			} elsif (lc $a[0] eq 'pass_request') {
-				$pass_r = 0 if lc $a[1] eq 'no';
-			} elsif ($a[0] =~ s/^-//) {
-				push @arg2, @a;
-			} else { # Any unknown get passed as key-value pairs
-				push @arg2, @a;
-			}
-		}
-	}
+    my ($pass_r, @arg1, @arg2, $sub) = (1);
+    {
+        my @a;
+        while (@a = splice(@$margs, 0, 2)) {
+            $a[1] =~ s/\\(.)/$1/gs;
+            if ($a[0] eq 'sub') {
+                $sub = $a[1];
+            } elsif ($a[0] eq 'arg') {
+                push @arg1, $a[1];
+            } elsif ($a[0] eq 'args') {
+                push @arg1, split(/,/, $a[1]);
+            } elsif (lc $a[0] eq 'pass_request') {
+                $pass_r = 0 if lc $a[1] eq 'no';
+            } elsif ($a[0] =~ s/^-//) {
+                push @arg2, @a;
+            } else { # Any unknown get passed as key-value pairs
+                push @arg2, @a;
+            }
+        }
+    }
 
-	warn "sub is $sub, args are @arg1 & @arg2" if $debug;
-	my $subref;
-	if ( $sub =~ /^\s*sub[^\w:]/ ) {     # for <!--#perl sub="sub {print ++$Access::Cnt }" -->
-		$subref = eval($sub);
-		if ($@) {
-			$self->{_r}->log_error("Perl eval of '$sub' failed: $@") if $self->{_r};
-			warn("Perl eval of '$sub' failed: $@") unless $self->{_r};
-		}
-		return '[A Perl error occurred while parsing this directive]' unless ref $subref;
-	} else {             # for <!--#perl sub="package::subr" -->
-	   	no strict('refs');
-		$subref = &{$sub =~ /::/ ? $sub : "main::$_"};
-	}
-	
-	$pass_r = 0 if $self->{_r} and lc $self->{_r}->dir_config('SSIPerlPass_Request') eq 'no';
-	unshift @arg1, $self->{_r} if $pass_r;
-	warn "sub is $subref, args are @arg1 & @arg2" if $debug;
-	return scalar &{ $subref }(@arg1, @arg2);
+    warn "sub is $sub, args are @arg1 & @arg2" if $debug;
+    my $subref;
+    if ( $sub =~ /^\s*sub[^\w:]/ ) {     # for <!--#perl sub="sub {print ++$Access::Cnt }" -->
+        $subref = eval($sub);
+        if ($@) {
+            $self->error("Perl eval of '$sub' failed: $@") if $self->{_r};
+            warn("Perl eval of '$sub' failed: $@") unless $self->{_r};  # For offline mode
+        }
+        return '[A Perl error occurred while parsing this directive]' unless ref $subref;
+    } else {             # for <!--#perl sub="package::subr" -->
+        no strict('refs');
+        $subref = &{$sub =~ /::/ ? $sub : "main::$_"};
+    }
+    
+    $pass_r = 0 if $self->{_r} and lc $self->{_r}->dir_config('SSIPerlPass_Request') eq 'no';
+    unshift @arg1, $self->{_r} if $pass_r;
+    warn "sub is $subref, args are @arg1 & @arg2" if $debug;
+    return scalar &{ $subref }(@arg1, @arg2);
 }
 
 sub ssi_set($$) {
-	my ($self, $args) = @_;
-	
-	$self->_interp_vars($args->{value});
-	$self->{_r}->subprocess_env( $args->{var}, $args->{value} );
-	return;
+    my ($self, $args) = @_;
+    
+    $self->_interp_vars($args->{value});
+    $self->{_r}->subprocess_env( $args->{var}, $args->{value} );
+    return;
 }
 
 sub ssi_config() {
-	warn "*** 'config' directive not implemented by ", __PACKAGE__;
-	return "<$_[1]>";
+    my ($self, $args) = @_;
+    
+    $self->{'errmsg'}  =    $args->{'errmsg'}  if exists $args->{'errmsg'};
+    $self->{'sizefmt'} = lc $args->{'sizefmt'} if exists $args->{'sizefmt'};
+    $self->error("'timefmt' not implemented by " . __PACKAGE__) if exists $args->{'timefmt'};
+    return;
 }
 
 sub ssi_echo($$) {
-	my($self, $args) = @_;
-	my $var = $args->{var};
-	$self->_interp_vars($var);
-	my $value;
-	no strict('refs');
-	
-	if (exists $ENV{$var}) {
-		return $ENV{$var};
-	} elsif ( defined ($value = $self->{_r}->subprocess_env($var)) ) {
-		return $value;
-	} elsif (defined &{"echo_$var"}) {
-		return &{"echo_$var"}($self->{_r});
-	}
-	return '';
+    my($self, $args) = @_;
+    my $var = $args->{var};
+    $self->_interp_vars($var);
+    my $value;
+    no strict('refs');
+    
+    if (exists $ENV{$var}) {
+        return $ENV{$var};
+    } elsif ( defined ($value = $self->{_r}->subprocess_env($var)) ) {
+        return $value;
+    } elsif (defined &{"echo_$var"}) {
+        return &{"echo_$var"}($self->{_r});
+    }
+    return '';
 }
 
 sub echo_DATE_GMT() { scalar gmtime; }
@@ -352,6 +391,12 @@ sub _interp_vars {
 #    }
 #    $out;
 #}
+
+sub error {
+    my $self = shift;
+    print $self->{'errmsg'};
+    $self->{_r}->log_error($_[0]) if @_;
+}
 
 
 sub _2main { $_[0]->is_main() ? $_[0] : $_[0]->main() }
@@ -423,6 +468,8 @@ mod_include's online documentation at http://www.apache.org/ .
 
 =over 4
 
+=item * config
+
 =item * echo
 
 =item * exec
@@ -487,10 +534,6 @@ server's config file.
 See C<http://perl.apache.org/src/mod_perl.html> for more information on Perl
 SSI calls.
 
-=item * config
-
-Not supported yet.  If anyone thinks it's important, drop me a line.
-
 =back
 
 =head1 CHAINING HANDLERS
@@ -505,8 +548,12 @@ like this:
  PerlModule My::AfterSSI
  <Files ~ "\.ssi$">
   SetHandler perl-script
+  PerlSetVar Filter On
   PerlHandler My::BeforeSSI Apache::SSI My::AfterSSI
  </Files>
+
+The C<"PerlSetVar Filter On"> directive tells the three stacked handlers that
+they should use their filtering mode.  It's mandatory.
 
 The second uses C<Apache::OutputChain>, and your httpd.conf would look something
 like this:

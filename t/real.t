@@ -3,199 +3,49 @@
 # This test will start up a real httpd server with Apache::SSI loaded in
 # it, and make several requests on that server.
 
-# You shouldn't have to change any of these, but you can if you want:
-$ACONF = "/dev/null";
-$CONF  = "t/httpd.conf";
-$SRM   = "/dev/null";
-$LOCK  = "t/httpd.lock";
-$PID   = "t/httpd.pid";
-$ELOG  = "t/error_log";
-
-######################################################################
-################ Don't change anything below here ####################
-######################################################################
-
-#line 25 real.t
-
-use vars qw(
-     $ACONF   $CONF   $SRM   $LOCK   $PID   $ELOG
-   $D_ACONF $D_CONF $D_SRM $D_LOCK $D_PID $D_ELOG
-);
-my $DIR = `pwd`;
-chomp $DIR;
-&dirify(qw(ACONF CONF SRM LOCK PID ELOG));
-&read_httpd_loc();
-
 use strict;
-use vars qw($TEST_NUM $BAD %CONF);
-use LWP::UserAgent;
-use Carp;
+use lib 'lib', 't/lib';
+use Apache::test qw(test);
 
 my %requests = (
-	3  => 'bare.ssi',
-	4  => 'file.ssi',
-	5  => 'kid.ssik',
-	6  => 'virtual.ssi',
-	7  => 'incl_rel.ssi',
-	8  => 'incl_rel2.ssi',
-	9  => 'set_var.ssi',
-	10 => 'xssi.ssi',
-	11 => 'include_cgi.ssi/path?query',
-	12 => 'if.ssi',
-	13 => 'if2.ssi',
-	14 => 'escape.ssi',
-	15 => 'exec_cmd.ssi',
-	#16 => 'flastmod.ssi',
+	3  => '/docs/bare.ssi',
+	4  => '/docs/file.ssi',
+	5  => '/docs/kid.ssik',
+	6  => '/docs/virtual.ssi',
+	7  => '/docs/incl_rel.ssi',
+	8  => '/docs/incl_rel2.ssi',
+	9  => '/docs/set_var.ssi',
+	10 => '/docs/xssi.ssi',
+	11 => '/docs/include_cgi.ssi/path?query',
+	12 => '/docs/if.ssi',
+	13 => '/docs/if2.ssi',
+	14 => '/docs/escape.ssi',
+	15 => '/docs/exec_cmd.ssi',
+	#16 => '/docs/flastmod.ssi',
 );
+my %special_tests = ();
 
-
+use vars qw($TEST_NUM);
 print "1.." . (2 + keys %requests) . "\n";
 
-&report( &create_conf() );
-my $result = &start_httpd;
-&report( $result );
+test ++$TEST_NUM, 1;
+test ++$TEST_NUM, 1;  # For backward numerical compatibility
 
-if ($result) {
-	local $SIG{'__DIE__'} = \&kill_httpd;
-	local $SIG{'INT'} = \&kill_httpd;
-	
-	foreach my $testnum (sort {$a<=>$b} keys %requests) {
-		my $ua = new LWP::UserAgent;
-		my $req = new HTTP::Request('GET', "http://localhost:$CONF{port}/t/docs/$requests{$testnum}");
-		my $response = $ua->request($req);
-	
-		&test_outcome($response->content, $testnum);
-	}
-
-	&kill_httpd();
-	warn "\nSee $ELOG for failure details\n" if $BAD;
-} else {
-	warn "Aborting real.t";
-}
-
-&cleanup();
-
-#############################
-
-sub read_httpd_loc {
-  open LOC, "t/httpd.loc" or die "t/httpd.loc: $!";
-  while (<LOC>) {
-    $CONF{$1} = $2 if /^(\w+)=(.*)/;
-  }
-}
-
-sub start_httpd {
-	print STDERR "Starting http server... ";
-	unless (-x $CONF{httpd}) {
-		warn("$CONF{httpd} doesn't exist or isn't executable.  Edit real.t if you want to test with a real apache server.\n");
-		return;
-	}
-	&do_system("cp /dev/null $ELOG");
-	&do_system("$CONF{httpd} -f $D_CONF") == 0
-		or die "Can't start httpd: $!";
-	print STDERR "ready. ";
-	return 1;
-}
-
-sub kill_httpd {
-	&do_system("kill -TERM `cat $PID`");
-	&do_eval("unlink '$ELOG'") unless $BAD;
-	return 1;
-}
-
-sub cleanup {
-	&do_eval("unlink '$CONF'");
-	return 1;
+foreach my $testnum (sort {$a<=>$b} keys %requests) {
+  &test_outcome(Apache::test->fetch($requests{$testnum}), $testnum);
 }
 
 sub test_outcome {
-	my $text = shift;
-	my $i = shift;
-	
-	my $ok = ($text eq `cat t/docs.check/$i`);
-	&report($ok);
-	print "Result: $text" if ($ENV{TEST_VERBOSE} and not $ok);
+  my ($response, $i) = @_;
+  my $content = $response->content;
+  #warn "($content, $response, $i)\n";
+  
+  my $expected;
+  my $ok = ($special_tests{$i} ?
+            $special_tests{$i}->($response) :
+            ($content eq ($expected = `cat t/docs.check/$i`)) );
+  Apache::test->test(++$TEST_NUM, $ok);
+  my $headers = $response->headers_as_string();
+  print "$i Result:\n$content\n$i Expected: $expected\n" if ($ENV{TEST_VERBOSE} and not $ok);
 }
 
-sub report {
-	my $ok = shift;
-	$TEST_NUM++;
-	print "not "x(!$ok), "ok $TEST_NUM\n";
-	$BAD++ unless $ok;
-}
-
-sub do_system {
-	my $cmd = shift;
-	print "$cmd\n";
-	return system $cmd;
-}
-
-sub do_eval {
-	my $code = shift;
-	print "$code\n";
-	my $result = eval $code;
-	if ($@ or !$result) { carp "WARNING: $@" }
-	return $result;
-}
-
-sub dirify {
-	no strict('refs');
-	foreach (@_) {
-		# Turn $VAR into $D_VAR, which has an absolute path
-		${"D_$_"} = (${$_} =~ m,^/, ? ${$_} : "$DIR/${$_}");
-	}
-}
-
-sub create_conf {
-	my $file = $CONF;
-	open (CONF, ">$file") or die "Can't create $file: $!" && return;
-	print CONF <<EOF;
-
-#This file is created by the $0 script.
-
-Port $CONF{port}
-User $CONF{user}
-Group $CONF{group}
-ServerName localhost
-DocumentRoot $DIR
-
-ErrorLog $D_ELOG
-PidFile $D_PID
-AccessConfig $D_ACONF
-ResourceConfig $D_SRM
-LockFile $D_LOCK
-TypesConfig /dev/null
-TransferLog /dev/null
-ScoreBoardFile /dev/null
-
-AddType text/html .html
-
-# Look in ./blib/lib
-PerlModule ExtUtils::testlib
-PerlModule Apache::SSI
-PerlRequire $DIR/t/Kid.pm
-PerlModule Apache::Status
-
-<Files ~ "\\.ssi\$">
- SetHandler perl-script
- PerlHandler Apache::SSI
-</Files>
-
-<Files ~ "\\.ssik\$">
- SetHandler perl-script
- PerlHandler Apache::Kid
-</Files>
-
-
-<Location /perl-status>
- SetHandler perl-script
- PerlHandler Apache::Status
-</Location>
-
-EOF
-	
-	close CONF;
-	
-	chmod 0644, $file or warn "Couldn't 'chmod 0644 $file': $!";
-	return 1;
-}

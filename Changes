@@ -1,5 +1,32 @@
 Revision history for Perl extension Apache::SSI.
 
+2.14  Fri Nov  3 16:21:45 EST 2000
+   We now use Apache::test for the 'make test' part of installation.
+   Made changes throughout the distribution for this.
+
+   Now correctly sets the DOCUMENT_URI environment variable. 
+   [jacqui.caren@ig.co.uk (Jacqui Caren)]
+
+   Nested if...endif sections now work correctly.  Previously they were
+   not allowed. [dburry@tagnet.org (David Burry)]
+
+   If the structure of if...endif XSSI sections is malformed, we now
+   return an error instead of dying.  This seems better.  Note that
+   mod_include will just continue on without any errors, giving really
+   strange results that are hard to debug.
+
+   The error() method will not attempt to write to the error logs in
+   standalone mode anymore.  This was causing a fatal error in standalone
+   mode.
+
+   Added a test to the test suite that makes sure simple subclassing of
+   Apache::SSI works as expected.
+
+   Added a couple of tests (not exercised yet) for nested if...elsif XSSI
+   structures.  Corresponding code is mostly written, but needs some more
+   scrutiny & testing.
+
+
 2.13  Sun Jun  4 01:34:36 EDT 2000
    Since HTML::SimpleParse now handles case-sensitivity correctly, we
    need to be a bit more careful in this module.  If you're using

@@ -7,8 +7,9 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.13';
+$VERSION = '2.14';
 my $debug = 0;
+
 
 sub handler($$) {
     my($pack,$r_orig) = @_;  # Handles subclassing via PerlMethodHandler
@@ -30,6 +31,7 @@ sub handler($$) {
         my $file = $r->filename;
 
         unless (-e $file) {
+	#unless (-e $r->finfo) {
             $r->log_error("$file not found");
             return NOT_FOUND;
         }
@@ -54,9 +56,11 @@ sub new {
     {
      'text' => $text,
      '_r'   => $r,
-     'suspend' => 0,
-     'seen_true' => undef, # 1 when we've seen a true "if" in this if-chain,
-                           # 0 when we haven't, undef when we're not in an if-chain
+     'suspend' => [0],
+     'if_state' => [1], # A stack reflecting the current state of if/else parser.
+                        # Each entry is 1 when we've seen a true condition in this if-chain,
+                        # 0 when we haven't.  Initially it's as if we're in a big true 
+                        # if-block with no else.
      'errmsg'  => "[an error occurred while processing this directive]",
      'sizefmt' => 'abbrev',
      'timefmt' => undef, # undef means the current locale's default
@@ -78,7 +82,7 @@ sub get_output {
     my $ssi;
     my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
     while (@parts) {
-        $out .= ('', shift @parts)[1-$self->{'suspend'}];
+        $out .= ('', shift @parts)[1-$self->{'suspend'}[0]];
         last unless @parts;
         $ssi = shift @parts;
         # There's some weird 'uninitialized' warning on the next line, but I can't find it.
@@ -95,7 +99,7 @@ sub output {
     
     my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
     while (@parts) {
-        print( ('', shift @parts)[1-$self->{'suspend'}] );
+        print( ('', shift @parts)[1-$self->{'suspend'}[0]] );
         last unless @parts;
         my $ssi = shift @parts;
         if ($ssi =~ m/^<!--#(.*)-->$/s) {
@@ -109,7 +113,7 @@ sub output_ssi {
     
     if ($text =~ s/^(\w+)\s*//) {
         my $tag = $1;
-        return if ($self->{'suspend'} and not $tag =~ /^(if|elif|else|endif)/);
+        return if ($self->{'suspend'}[0] and not $tag =~ /^(if|elif|else|endif)/);
         my $method = lc "ssi_$tag";
 
         warn "returning \$self->$method($text)" if $debug;
@@ -123,38 +127,34 @@ sub output_ssi {
 
 sub ssi_if {
     my ($self, $args) = @_;
-    # Make sure we're not already in an 'if' chain
-    die "Malformed if..endif SSI structure" if defined $self->{'seen_true'};
-
-    $self->_handle_ifs( $self->_eval_vars($args->{'expr'}) );
-    return '';
+    unshift @{$self->{if_state}}, 0;
+    unshift @{$self->{suspend}},  $self->{suspend}[0];
+    return '' if $self->{suspend}[0];
+    return $self->_handle_ifs( $self->_eval_vars($args->{'expr'}) );
 }
 
 sub ssi_elif {
     my ($self, $args) = @_;
     # Make sure we're in an 'if' chain
-    die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
-    
-    $self->_handle_ifs( $self->_eval_vars($args->{'expr'}) );
-    return '';
+    return $self->error("Malformed if..endif SSI structure") unless @{$self->{if_state}} > 1;
+    return '' if $self->{suspend}[1];
+    return $self->_handle_ifs( $self->_eval_vars($args->{'expr'}) );
 }
 
 sub ssi_else {
     my $self = shift;
     # Make sure we're in an 'if' chain
-    die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
-    
-    $self->_handle_ifs(1);
-    return '';
+    return $self->error("Malformed if..endif SSI structure") unless @{$self->{if_state}} > 1;
+    return '' if $self->{suspend}[1];
+    return $self->_handle_ifs(1);
 }
 
 sub ssi_endif {
     my $self = shift;
     # Make sure we're in an 'if' chain
-    die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
-    
-    $self->{'seen_true'} = undef;
-    $self->{'suspend'} = 0;
+    return $self->error("Malformed if..endif SSI structure") unless @{$self->{if_state}} > 1;
+    shift @{$self->{if_state}};
+    shift @{$self->{suspend}};
     return '';
 }
 
@@ -162,17 +162,12 @@ sub _handle_ifs {
     my $self = shift;
     my $cond = shift;
     
-    if ($self->{'seen_true'}) {
-        $self->{'suspend'} = 1;
+    if ($self->{if_state}[0]) {
+        $self->{suspend}[0] = 1;
     } else {
-        if ($cond) {
-            $self->{'suspend'} = 0;
-            $self->{'seen_true'} = 1;
-        } else {
-            $self->{'suspend'} = 1;
-            $self->{'seen_true'} = 0;
-        }
+        $self->{suspend}[0] = !($self->{if_state}[0] = !!$cond);
     }
+    return '';
 }
 
 
@@ -264,6 +259,7 @@ sub ssi_exec {
     $rr->path_info( $r->path_info );
     $rr->args( scalar $r->args );
     $rr->content_type("application/x-httpd-cgi");
+    &_set_VAR($rr, 'DOCUMENT_URI', $r->uri);
     
     my $status = $rr->run;
     return '';
@@ -422,7 +418,7 @@ sub _interp_vars {
 sub error {
     my $self = shift;
     print $self->{'errmsg'};
-    $self->{_r}->log_error($_[0]) if @_;
+    $self->{_r}->log_error($_[0]) if @_ and $self->{_r};
     return '';
 }
 

@@ -1,48 +1,57 @@
 use ExtUtils::MakeMaker;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
+use lib 't/lib';
+use Apache::test;
 
-my $default = $ENV{'APACHE'} || '/usr/lib/httpd/httpd';
-$|=1;
-print("\nFor testing purposes, please give the full path to an httpd with mod_perl.\n",
-      "The path defaults to \$ENV{APACHE}, if present.\n",
-     );
-
-my %conf;
-
-do {
-  print "\n [$default]: ";
-  chomp ($conf{httpd} = <STDIN>);
-  $conf{httpd} ||= $default;
-} until -e $conf{httpd} || !print("$conf{httpd} not found\n");
-
-$default = getpwuid($<) || "nobody";
-print "User to run tests under [$default]: ";
-chomp ($conf{user} = <STDIN>);
-$conf{user} ||= $default;
-
-$default = getgrgid((getpwnam($conf{user}))[3]) || "nobody";
-print "Group to run tests under [$default]: ";
-chomp ($conf{group} = <STDIN>);
-$conf{group} ||= $default;
-
-$default = 8228;
-print "Port to run tests under [$default]: ";
-chomp ($conf{port} = <STDIN>);
-$conf{port} ||= $default;
+my %params = Apache::test->get_test_params();
+chomp (my $cwd = `pwd`);
+Apache::test->write_httpd_conf
+    (%params, 
+     include => join '', <DATA>);
+*MY::test = sub { Apache::test->MM_test(%params) };
 
 
-open LOC, ">t/httpd.loc" or die "can't write t/httpd.loc: $!";
-print LOC map {"$_=$conf{$_}\n"} keys %conf;
-close LOC;
+my $module = 'Apache::SSI';
+my ($name, $dir);
+($name = $module) =~ s/.*::(\w+)/$1.pm/;
+($dir  = $module) =~ s/::/-/g;
 
-WriteMakefile(
-    'NAME'	=> 'Apache::SSI',
-    'VERSION_FROM' => 'SSI.pm', # finds $VERSION
-    'dist' => { COMPRESS=>"gzip", SUFFIX=>"gz" },
-    'PREREQ_PM' => {
-        'Apache::Constants' => '1.00',
-        'HTML::SimpleParse' => '0.06',
-    }
+WriteMakefile
+  (
+   'NAME'       => $module,
+   'VERSION_FROM' => $name, # finds $VERSION
+   'dist' => { COMPRESS=>"gzip",
+               SUFFIX=>"gz",
+               PREOP=>('rm -f README; '.
+                       "pod2text -80 < $name > README; ".
+                       "cp -f README $dir-\$(VERSION); "
+                      ),
+             },
+   'clean' => {FILES => "t/httpd.conf t/error_log t/httpd"},
+   'PREREQ_PM' => {
+		   'Apache::Constants' => '1.00',
+		   'HTML::SimpleParse' => '0.06',
+		  }
+  );
 
-);
+
+__DATA__
+AddType text/html .html
+
+PerlModule Apache::SSI
+PerlModule Apache::Kid
+PerlModule Apache::Status
+
+<Files ~ "\.ssi$">
+ SetHandler perl-script
+  PerlHandler Apache::SSI
+</Files>
+
+<Files ~ "\.ssik$">
+ SetHandler perl-script
+  PerlHandler Apache::Kid
+</Files>
+
+<Location /perl-status>
+ SetHandler perl-script
+  PerlHandler Apache::Status
+</Location>

@@ -3,7 +3,6 @@ MANIFEST
 Makefile.PL
 README
 SSI.pm
-t/Kid.pm
 t/benchmark.pl
 t/docs.check/10
 t/docs.check/11
@@ -37,4 +36,6 @@ t/docs/set_var.ssi
 t/docs/virtual.ssi
 t/docs/xssi.ssi
 t/fake.t
+t/lib/Apache/Kid.pm
+t/lib/Apache/test.pm
 t/real.t

@@ -49,6 +49,8 @@ my %requests = (
 	9  => 'set_var.ssi',
 	10 => 'xssi.ssi',
 	11 => 'include_cgi.ssi/path?query',
+	12 => 'if.ssi',
+	13 => 'if2.ssi',
 );
 
 

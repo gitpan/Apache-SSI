@@ -6,11 +6,12 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..7\n"; }
+BEGIN { $| = 1; print "1..8\n"; }
 END {print "not ok 1\n" unless $loaded;}
+#use lib '/home/ken/modules/Apache-SSI/blib/lib';
 use Apache::SSI;
 $loaded = 1;
-print "ok 1\n";
+&report_result(1);
 
 ######################### End of black magic.
 
@@ -18,13 +19,12 @@ print "ok 1\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-$TEST_NUM = 2;
 sub report_result {
 	my $bad = !shift;
+	$TEST_NUM++;
 	print "not "x$bad, "ok $TEST_NUM\n";
 	
 	print $_[0] if ($bad and $ENV{TEST_VERBOSE});
-	$TEST_NUM++;
 }
 
 # 2
@@ -42,8 +42,11 @@ sub report_result {
 # 6
 &quick_test('<!--#perl sub="sub {length \"1234\"}"-->', 4);
 
-# 7
+# 7: multiple lines
 &quick_test( qq[<!--#perl\n sub="sub {return 6;\n}"-->], 6);
+
+# 8
+&quick_test( qq[<!--#if expr="!(0)" -->6<!--#else-->3<!--#endif-->], '6' );
 
 sub quick_test {
 	my $ssi = shift;

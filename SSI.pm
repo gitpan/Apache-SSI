@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.05';
+$VERSION = '2.06';
 my $debug = 0;
 
 sub handler($$) {
@@ -51,6 +51,7 @@ sub handler($$) {
 
 sub new {
     my ($pack, $text, $r) = @_;
+    
     return bless {
         'text' => $text,
         '_r'   => $r,
@@ -70,15 +71,17 @@ sub text {
     return $self->{'text'};
 }
 
-sub get_output($) {
+sub get_output {
     my $self = shift;
     
     my $out = '';
+    my $ssi;
     my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
     while (@parts) {
         $out .= ('', shift @parts)[1-$self->{'suspend'}];
         last unless @parts;
-        my $ssi = shift @parts;
+        $ssi = shift @parts;
+        # There's some weird 'uninitialized' warning on the next line, but I can't find it.
         if ($ssi =~ m/^<!--#(.*)-->$/s) {
             $out .= $self->output_ssi($1);
         } else { die 'Parse error' }
@@ -87,7 +90,7 @@ sub get_output($) {
 }
 
 
-sub output($) {
+sub output {
     my $self = shift;
     
     my @parts = split m/(<!--#.*?-->)/s, $self->{'text'};
@@ -101,7 +104,7 @@ sub output($) {
     }
 }
 
-sub output_ssi($$) {
+sub output_ssi {
     my ($self, $text) = @_;
     
     if ($text =~ s/^(\w+)\s*//) {
@@ -122,8 +125,7 @@ sub ssi_if {
     # Make sure we're not already in an 'if' chain
     die "Malformed if..endif SSI structure" if defined $self->{'seen_true'};
 
-    $self->_interp_vars($args->{'expr'});
-    $self->_handle_ifs($args->{'expr'});
+    $self->_handle_ifs( $self->_eval_vars($args->{'expr'}) );
     return;
 }
 
@@ -132,8 +134,7 @@ sub ssi_elif {
     # Make sure we're in an 'if' chain
     die "Malformed if..endif SSI structure" unless defined $self->{'seen_true'};
     
-    $self->_interp_vars($args->{'expr'});
-    $self->_handle_ifs($args->{'expr'});
+    $self->_handle_ifs( $self->_eval_vars($args->{'expr'}) );
     return;
 }
 
@@ -174,7 +175,7 @@ sub _handle_ifs {
 }
 
 
-sub ssi_include($$) {
+sub ssi_include {
     my ($self, $args) = @_;
     my $subr = $self->find_file($args);
     unless ($subr->run == OK) {
@@ -183,7 +184,7 @@ sub ssi_include($$) {
     return;
 }
 
-sub ssi_fsize($$) { 
+sub ssi_fsize { 
     my ($self, $args) = @_;
     my $size = -s $self->find_file($args)->filename();
     if ($self->{'sizefmt'} eq 'bytes') {
@@ -200,7 +201,7 @@ sub ssi_fsize($$) {
     }
 }
 
-sub ssi_flastmod($$) {
+sub ssi_flastmod {
     my($self, $args) = @_;
     return &_lastmod( $self->find_file($args)->filename() );
 }
@@ -224,7 +225,7 @@ sub ssi_printenv() {
     return join "", map( {"$_: $ENV{$_}<br>\n"} keys %ENV );
 }
 
-sub ssi_exec($$) {
+sub ssi_exec {
     my($self, $args) = @_;
     #XXX did we check enough?
     my $r = $self->{_r};
@@ -257,7 +258,7 @@ sub ssi_exec($$) {
     return;
 }
 
-sub ssi_perl($$$) {
+sub ssi_perl {
     my($self, $args, $margs) = @_;
 
     my ($pass_r, @arg1, @arg2, $sub) = (1);
@@ -265,11 +266,11 @@ sub ssi_perl($$$) {
         my @a;
         while (@a = splice(@$margs, 0, 2)) {
             $a[1] =~ s/\\(.)/$1/gs;
-            if ($a[0] eq 'sub') {
+            if (lc $a[0] eq 'sub') {
                 $sub = $a[1];
-            } elsif ($a[0] eq 'arg') {
+            } elsif (lc $a[0] eq 'arg') {
                 push @arg1, $a[1];
-            } elsif ($a[0] eq 'args') {
+            } elsif (lc $a[0] eq 'args') {
                 push @arg1, split(/,/, $a[1]);
             } elsif (lc $a[0] eq 'pass_request') {
                 $pass_r = 0 if lc $a[1] eq 'no';
@@ -283,16 +284,16 @@ sub ssi_perl($$$) {
 
     warn "sub is $sub, args are @arg1 & @arg2" if $debug;
     my $subref;
-    if ( $sub =~ /^\s*sub[^\w:]/ ) {     # for <!--#perl sub="sub {print ++$Access::Cnt }" -->
+    if ( $sub =~ /^\s*sub\s/ ) {     # for <!--#perl sub="sub {print ++$Access::Cnt }" -->
         $subref = eval($sub);
         if ($@) {
             $self->error("Perl eval of '$sub' failed: $@") if $self->{_r};
             warn("Perl eval of '$sub' failed: $@") unless $self->{_r};  # For offline mode
         }
-        return '[A Perl error occurred while parsing this directive]' unless ref $subref;
+        return $self->error("sub=\"sub ...\" didn't return a reference") unless ref $subref;
     } else {             # for <!--#perl sub="package::subr" -->
         no strict('refs');
-        $subref = &{$sub =~ /::/ ? $sub : "main::$_"};
+        $subref = \&{$sub =~ /::/ ? $sub : "main::$_"};
     }
     
     $pass_r = 0 if $self->{_r} and lc $self->{_r}->dir_config('SSIPerlPass_Request') eq 'no';
@@ -301,7 +302,7 @@ sub ssi_perl($$$) {
     return scalar &{ $subref }(@arg1, @arg2);
 }
 
-sub ssi_set($$) {
+sub ssi_set {
     my ($self, $args) = @_;
     
     $self->_interp_vars($args->{value});
@@ -309,7 +310,7 @@ sub ssi_set($$) {
     return;
 }
 
-sub ssi_config() {
+sub ssi_config {
     my ($self, $args) = @_;
     
     $self->{'errmsg'}  =    $args->{'errmsg'}  if exists $args->{'errmsg'};
@@ -318,7 +319,7 @@ sub ssi_config() {
     return;
 }
 
-sub ssi_echo($$) {
+sub ssi_echo {
     my($self, $args) = @_;
     my $var = $args->{var};
     $self->_interp_vars($var);
@@ -335,34 +336,47 @@ sub ssi_echo($$) {
     return '';
 }
 
-sub echo_DATE_GMT() { scalar gmtime; }
-sub echo_DATE_LOCAL() { scalar localtime; }
-sub echo_DOCUMENT_NAME($) {
+sub echo_DATE_GMT { scalar gmtime; }
+sub echo_DATE_LOCAL { scalar localtime; }
+sub echo_DOCUMENT_NAME {
     my $r = _2main(shift);
     return &_set_VAR($r, 'DOCUMENT_NAME', basename $r->filename);
 }
-sub echo_DOCUMENT_URI($) {
+sub echo_DOCUMENT_URI {
     my $r = _2main(shift);
     return &_set_VAR($r, 'DOCUMENT_URI', $r->uri);
 }
-sub echo_LAST_MODIFIED($) {
+sub echo_LAST_MODIFIED {
     my $r = _2main(shift);
     return &_set_VAR($r, 'LAST_MODIFIED', &_lastmod($r->filename));
 }
 
-sub _set_VAR($$$) {
+sub _set_VAR {
     $_[0]->subprocess_env($_[1], $_[2]);
     return $_[2];
 }
 
-sub _interp_vars {
-    # Do variable interpolation (incomplete and buggy)
+sub _eval_vars {
     my $self = shift;
-    my ($a,$b,$c);
-    $_[0] =~ s{ (^|[^\\]) (\\\\)* \$(\{)?(\w+)(\})? } 
+    my $text = shift;
+    $text =~ s{ (^|[^\\]) (\\\\)* \$(\{)?(\w+)(\})? }
+              { $1 . substr($2,length($2)/2) . "\${ \\(\$self->ssi_echo({var=>'$4'})) }" }exg;
+    #;  For poor BBEdit because of that last line
+    package main; # In case they're running functions
+    my $result = eval $text;
+    $self->error("Eval error: $@") if $@;
+    return $result;
+}
+
+sub _interp_vars {
+    # Find all $var and ${var} expressions in the string and fill them in.
+    my $self = shift;
+    my ($a,$b,$c);  # Because ssi_echo may change $1, $2, ...
+    $_[0] =~ s{ (^|[^\\]) (\\\\)* \$(\{)?(\w+)(\})? }
               { ($a,$b,$c) = ($1,$2,$4);
                 $a . substr($b,length($b)/2) . $self->ssi_echo({var=>$c}) }exg;
 }
+
 # This might be better for _interp_vars:
 #sub _interp_vars {
 #    local $_ = shift;
@@ -396,6 +410,7 @@ sub error {
     my $self = shift;
     print $self->{'errmsg'};
     $self->{_r}->log_error($_[0]) if @_;
+    return '';
 }
 
 
@@ -484,14 +499,6 @@ mod_include's online documentation at http://www.apache.org/ .
 
 =item * set
 
-=item * if
-
-=item * elif
-
-=item * else
-
-=item * endif
-
 =item * perl
 
 There are two ways to call a Perl function, and two ways to supply it with
@@ -534,6 +541,30 @@ server's config file.
 See C<http://perl.apache.org/src/mod_perl.html> for more information on Perl
 SSI calls.
 
+=item * if
+
+=item * elif
+
+=item * else
+
+=item * endif
+
+These four directives can be used just like in C<mod_include>, with one important
+difference: the boolean expression is evaluated using Perl's eval().  This means
+you use C<==> or C<eq> instead of C<=> to test equality.  It also means you can use
+pre-loaded Perl subroutines in the conditions:
+
+ <!--#if expr="&Movies::is_by_Coen_Brothers($MOVIE)"-->
+  This movie is by the Coen Brothers.
+ <!--#else-->
+  This movie is not by the Coen Brothers.
+ <!--#endif-->
+
+It can't handle very sophistocated Perl though, because it manually looks for
+variables (of the form $var or ${var}, just like C<mod_include>), and will get tripped 
+up on expressions like $object->method or $hash{'key'}.  I'll welcome any suggestions
+for how to allow arbitrary Perl expressions while still filling in Apache variables.
+
 =back
 
 =head1 CHAINING HANDLERS
@@ -574,12 +605,21 @@ C<Apache::Filter>, whereas it needs to be wrapped in C<Apache::SSIChain> to
 be used with C<Apache::OutputChain>.
 
 Please see the documentation for C<Apache::OutputChain> and C<Apache::Filter>
-for more specific information.
+for more specific information.  And look at the note in CAVEATS too.
  
 
 =head1 CAVEATS
 
-Currently, the way <!--#echo var=whatever--> looks for variables is
+* When chaining handlers via Apache::Filter, if you use <!--#include ...-->
+or <!--#exec cgi=...-->, then Apache::SSI must be the last filter in the
+chain.  This is because Apache::SSI uses $r->lookup_uri(...)->run to include
+the files, and this sends the output through C's stdout rather than Perl's
+STDOUT.  Thus Apache::Filter can't catch it and filter it.
+
+If Apache::SSI is the last filter in the chain, or if you stick to simpler SSI
+directives like <!--#fsize-->, <!--#flastmod-->, etc. you'll be fine.
+
+* Currently, the way <!--#echo var=whatever--> looks for variables is
 to first try $r->subprocess_env, then try %ENV, then the five extra environment
 variables mod_include supplies.  Is this the correct order?
 

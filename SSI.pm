@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.04';
+$VERSION = '2.05';
 my $debug = 0;
 
 sub handler($$) {
@@ -79,7 +79,7 @@ sub get_output($) {
         $out .= ('', shift @parts)[1-$self->{'suspend'}];
         last unless @parts;
         my $ssi = shift @parts;
-        if ($ssi =~ m/^<!--#(.*)-->$/) {
+        if ($ssi =~ m/^<!--#(.*)-->$/s) {
             $out .= $self->output_ssi($1);
         } else { die 'Parse error' }
     }
@@ -95,7 +95,7 @@ sub output($) {
         print( ('', shift @parts)[1-$self->{'suspend'}] );
         last unless @parts;
         my $ssi = shift @parts;
-        if ($ssi =~ m/^<!--#(.*)-->$/) {
+        if ($ssi =~ m/^<!--#(.*)-->$/s) {
             print $self->output_ssi($1);
         } else { die 'Parse error' }
     }

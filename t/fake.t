@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..6\n"; }
+BEGIN { $| = 1; print "1..7\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Apache::SSI;
 $loaded = 1;
@@ -41,6 +41,9 @@ sub report_result {
 
 # 6
 &quick_test('<!--#perl sub="sub {length \"1234\"}"-->', 4);
+
+# 7
+&quick_test( qq[<!--#perl\n sub="sub {return 6;\n}"-->], 6);
 
 sub quick_test {
 	my $ssi = shift;

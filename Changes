@@ -1,5 +1,9 @@
 Revision history for Perl extension Apache::SSI.
 
+2.05  Mon Feb  1 12:12:25 EST 1999
+   - Fixed a bug that was preventing directives from spanning multiple lines
+     [ Thanks, Yury Kuznesov ]
+
 2.04  Sat Jan 30 00:27:54 EST 1999
    - Removed the %ENV = $r->cgi_env line, since it's not necessary.
      See http://forum.swarthmore.edu/epigone/modperl/jangblorkand .

@@ -23,6 +23,7 @@ t/docs/bare.ssi
 t/docs/escape.ssi
 t/docs/exec_cmd.ssi
 t/docs/file.ssi
+t/docs/flastmod.ssi
 t/docs/if.ssi
 t/docs/if2.ssi
 t/docs/incl

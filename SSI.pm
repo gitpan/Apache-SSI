@@ -7,7 +7,7 @@ use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
 
-$VERSION = '2.08';
+$VERSION = '2.09';
 my $debug = 0;
 
 sub handler($$) {
@@ -50,16 +50,18 @@ sub handler($$) {
 }
 
 sub new {
-    my ($pack, $text, $r) = @_;
-    
-    return bless {
-        'text' => $text,
-        '_r'   => $r,
-        'suspend' => 0,
-        'seen_true' => undef, # 1 when we've seen a true "if" in this if-chain,
-                              # 0 when we haven't, undef when we're not in an if-chain
-        'errmsg'  => "[an error occurred while processing this directive]",
-        'sizefmt' => 'abbrev',
+  my ($pack, $text, $r) = @_;
+  
+  return bless 
+    {
+     'text' => $text,
+     '_r'   => $r,
+     'suspend' => 0,
+     'seen_true' => undef, # 1 when we've seen a true "if" in this if-chain,
+     # 0 when we haven't, undef when we're not in an if-chain
+     'errmsg'  => "[an error occurred while processing this directive]",
+     'sizefmt' => 'abbrev',
+     'timefmt' => undef, # undef means the current locale's default
     }, $pack;
 }
 
@@ -203,7 +205,7 @@ sub ssi_fsize {
 
 sub ssi_flastmod {
     my($self, $args) = @_;
-    return &_lastmod( $self->find_file($args)->filename() );
+    return &_lastmod( $self->find_file($args)->filename(), $args->{'timefmt'} || $self->{'timefmt'} );
 }
 
 sub find_file {
@@ -315,7 +317,7 @@ sub ssi_config {
     
     $self->{'errmsg'}  =    $args->{'errmsg'}  if exists $args->{'errmsg'};
     $self->{'sizefmt'} = lc $args->{'sizefmt'} if exists $args->{'sizefmt'};
-    $self->error("'timefmt' not implemented by " . __PACKAGE__) if exists $args->{'timefmt'};
+    $self->{'timefmt'} =    $args->{'timefmt'} if exists $args->{'timefmt'};
     return '';
 }
 
@@ -416,8 +418,18 @@ sub error {
 
 sub _2main { $_[0]->is_main() ? $_[0] : $_[0]->main() }
 
-sub _lastmod($) { scalar localtime( (stat $_[0])[9] ) }
-
+sub _lastmod($;$) { # may get a timefmt as a second arg
+  if (defined $_[1]) {
+    unless (exists $INC{'Date/Format.pm'}) {
+      eval "use Date::Format";
+      warn "Can't load Date::Format: $@" if $@;
+      return if $@;
+    }
+    return strftime($_[1], [localtime( (stat $_[0])[9] )]);
+  } else {
+    return scalar localtime( (stat $_[0])[9]);
+  }
+}
 1;
 
 __END__

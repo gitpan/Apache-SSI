@@ -1,5 +1,10 @@
 Revision history for Perl extension Apache::SSI.
 
+2.09
+   - Added support for the 'timefmt' config directive for formatting
+     time-related output (thanks to Vassilii Khachaturov for the idea
+     & implementation).
+
 2.08
    - Forgot to include a couple of files in the distribution - they
      were files used during the 'make test' phase of installation.  No

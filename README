@@ -48,6 +48,13 @@ DESCRIPTION
     method. attribute=value pairs inside the SSI tags are parsed and passed
     to the method in a hash reference.
 
+    'Echo' directives are handled by the ssi_echo method, which delegates
+    lookup to methods with the prefix "echo_". For instance, <!--#echo
+    var=DOCUMENT_NAME--> is handled by the echo_DOCUMENT_NAME method.
+
+    You can customize behavior by inheriting from Apache::SSI and overriding
+    'ssi_*' and 'echo_*' methods, or writing new ones.
+
   SSI Directives
 
     This module supports the same directives as mod_include. At least,

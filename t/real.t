@@ -21,9 +21,12 @@ my %requests = (
 	13 => '/docs/if2.ssi',
 	14 => '/docs/escape.ssi',
 	15 => '/docs/exec_cmd.ssi',
-	#16 => '/docs/flastmod.ssi',
+	16 => '/docs/kid2.ssik',
+	17 => '/docs/flastmod.ssi',
 );
-my %special_tests = ();
+my %special_tests = (
+	17 => sub {my $year = (localtime)[5]+1900; shift->content =~ /Year: $year/},
+);
 
 use vars qw($TEST_NUM);
 print "1.." . (2 + keys %requests) . "\n";

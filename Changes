@@ -1,5 +1,21 @@
 Revision history for Perl extension Apache::SSI.
 
+2.16  Sun Dec  3 17:43:20 EST 2000
+   The 'Filter' directive is now properly recognized as case-insensitive.
+
+   We now use POSIX::strftime() instead of Date::Format::strftime() to
+   format dates.  [covertka@muohio.edu (Kent Covert)]
+
+   The 'echo' directives are now filled in using methods instead of
+   subroutines, so derived classes can change the behavior of 'echo'
+   directives and add new variables by creating new methods.  See
+   docs. [covertka@muohio.edu (Kent Covert)]
+
+   DATE_GMT and DATE_LOCAL variables are now properly formatted
+   according to the 'timefmt'.
+
+   We behave properly under a HEAD request.
+
 2.15  Sun Nov  5 00:24:52 EST 2000
    Updated code to work with Apache::Filter 1.013 and greater.  If
    you're using Apache::Filter 1.012 or lower, you must use 2.14 or

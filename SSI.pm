@@ -6,23 +6,17 @@ use Apache::Constants qw(:common OPT_INCNOEXEC);
 use File::Basename;
 use HTML::SimpleParse;
 use Symbol;
+use POSIX;
 
-$VERSION = '2.15';
+$VERSION = '2.16';
 my $debug = 0;
 
 
 sub handler($$) {
-    my($pack,$r_orig) = @_;  # Handles subclassing via PerlMethodHandler
-    my $r;
-    if ($r_orig) {
-        $r = $r_orig;
-    } else {
-        $r = $pack;
-        $pack = __PACKAGE__;
-    }
+    my ($pack, $r) = @_>1 ? @_ : (__PACKAGE__, shift());
     
     my $fh;
-    if ($r->dir_config('Filter') eq 'On') {
+    if (lc($r->dir_config('Filter')) eq 'on') {
         $r = $r->filter_register;
         my ($status);
         ($fh, $status) = $r->filter_input();
@@ -210,7 +204,7 @@ sub ssi_fsize {
 
 sub ssi_flastmod {
     my($self, $args) = @_;
-    return &_lastmod( $self->find_file($args)->filename(), $args->{'timefmt'} || $self->{'timefmt'} );
+    return $self->_lastmod( $self->find_file($args)->filename(), $args->{'timefmt'} || $self->{'timefmt'} );
 }
 
 sub find_file {
@@ -340,25 +334,27 @@ sub ssi_echo {
         return $ENV{$var};
     } elsif ( defined ($value = $self->{_r}->subprocess_env($var)) ) {
         return $value;
-    } elsif (defined &{"echo_$var"}) {
-        return &{"echo_$var"}($self->{_r});
+    } elsif ($self->can(my $method = "echo_$var")) {
+	return $self->$method($self->{_r});
     }
     return '';
 }
 
-sub echo_DATE_GMT { scalar gmtime; }
-sub echo_DATE_LOCAL { scalar localtime; }
+sub echo_DATE_GMT   { shift()->_format_time(time(), undef, 'GMT') }
+sub echo_DATE_LOCAL { shift()->_format_time(time()              ) }
 sub echo_DOCUMENT_NAME {
+    shift();
     my $r = _2main(shift);
     return &_set_VAR($r, 'DOCUMENT_NAME', basename $r->filename);
 }
 sub echo_DOCUMENT_URI {
+    shift();
     my $r = _2main(shift);
     return &_set_VAR($r, 'DOCUMENT_URI', $r->uri);
 }
 sub echo_LAST_MODIFIED {
-    my $r = _2main(shift);
-    return &_set_VAR($r, 'LAST_MODIFIED', &_lastmod($r->filename));
+    my ($self, $r) = (shift(), _2main(shift));
+    return &_set_VAR($r, 'LAST_MODIFIED', $self->_lastmod($r->filename));
 }
 
 sub _set_VAR {
@@ -426,18 +422,25 @@ sub error {
 
 sub _2main { $_[0]->is_main() ? $_[0] : $_[0]->main() }
 
-sub _lastmod($;$) { # may get a timefmt as a second arg
-  if (defined $_[1]) {
-    unless (exists $INC{'Date/Format.pm'}) {
-      eval "use Date::Format";
-      warn "Can't load Date::Format: $@" if $@;
-      return if $@;
-    }
-    return strftime($_[1], [localtime( (stat $_[0])[9] )]);
-  } else {
-    return scalar localtime( (stat $_[0])[9]);
-  }
+sub _format_time {
+  my ($self, $time, $format, $tzone) = @_;
+  $format ||= $self->{timefmt};
+  return ($format ? 
+	  POSIX::strftime($format, $self->_time_args($time, $tzone)) :
+	  scalar $self->_time_args($time, $tzone));
 }
+
+sub _time_args {
+  # This routine must respect the caller's wantarray() context.
+  my ($self, $time, $zone) = @_;
+  return $zone =~ /GMT/ ? gmtime($time) : localtime($time);
+}
+
+sub _lastmod {
+  my ($self, $file, $format) = @_;
+  return $self->_format_time((stat $file)[9], $format);
+}
+
 1;
 
 __END__
@@ -493,6 +496,13 @@ Each SSI directive is handled by an Apache::SSI method with the prefix
 "ssi_".  For example, <!--#printenv--> is handled by the ssi_printenv method.
 attribute=value pairs inside the SSI tags are parsed and passed to the
 method in a hash reference.
+
+'Echo' directives are handled by the ssi_echo method, which delegates
+lookup to methods with the prefix "echo_".  For instance, <!--#echo
+var=DOCUMENT_NAME--> is handled by the echo_DOCUMENT_NAME method.
+
+You can customize behavior by inheriting from Apache::SSI and
+overriding 'ssi_*' and 'echo_*' methods, or writing new ones.
 
 =head2 SSI Directives
 

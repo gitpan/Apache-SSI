@@ -12,5 +12,6 @@ sub ssi_images {
 	return &lastmod($args->{file} || $self->{_r}->filename);
 }
 
+sub echo_BOO { "BOO!" }
 
 1;

@@ -1,2 +1,2 @@
-<!--config timefmt="%a %A"-->
-Lastmod: <!--#flastmod virtual=flastmod.ssi -->
+<!--#config timefmt="%Y"-->
+Year: <!--#echo var=DATE_LOCAL-->

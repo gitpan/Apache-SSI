@@ -86,14 +86,15 @@ EOF
 
 sub _ask {
     # Just a function for asking the user questions
-    my ($prompt, $default, $mustfind) = @_;
+    my ($prompt, $default, $mustfind, $canskip) = @_;
 
+    my $skip = defined $canskip ? " ('$canskip' to skip)" : '';
     my $response;
     do {
-	print "$prompt [$default]: ";
+	print "$prompt [$default]$skip: ";
 	chomp($response = <STDIN>);
 	$response ||= $default;
-    } until (!$mustfind || (-e $response || !print("$response not found\n")));
+    } until (!$mustfind || ($response eq $canskip) || (-e $response || !print("$response not found\n")));
 
     return $response;
 }
@@ -108,10 +109,16 @@ sub get_test_params {
     
     my $httpd = $ENV{'APACHE'} || which('apache') || which('httpd') || '/usr/lib/httpd/httpd';
 
-    $httpd = _ask("\n", $httpd, 1);
+    $httpd = _ask("\n", $httpd, 1, '!');
+    if ($httpd eq '!') {
+	print "Skipping.\n";
+	return;
+    }
     system "$Config{lns} $httpd t/httpd";
 
-    if (lc _ask("Search existing config file for dynamic module dependencies?", 'n') eq 'y') {
+    # Default: search for dynamic dependencies if mod_so is present, don't bother otherwise.
+    my $default = (`t/httpd -l` =~ /mod_so\.c/ ? 'y' : 'n');
+    if (lc _ask("Search existing config file for dynamic module dependencies?", $default) eq 'y') {
 	my %compiled;
 	for (`t/httpd -V`) {
 	    if (/([\w]+)="(.*)"/) {
